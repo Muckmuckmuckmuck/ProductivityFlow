@@ -1,22 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { useState, useEffect } from 'react';
 import { 
   Users, 
-  Clock, 
   TrendingUp, 
-  Target, 
-  AlertCircle, 
-  Loader2, 
-  Calendar,
-  BarChart3,
+  Clock, 
+  Target,
   Activity,
-  Shield,
-  Download,
-  Eye
+  BarChart3,
+  Eye,
+  Download
 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { Badge } from '../components/ui/Badge';
+import { Button } from '../components/ui/Button';
+import { Progress } from '../components/ui/Progress';
 import { 
-  BarChart, 
-  Bar, 
+   
   XAxis, 
   YAxis, 
   CartesianGrid, 
@@ -29,581 +27,161 @@ import {
   Cell
 } from 'recharts';
 
-// Updated to use the correct backend URL
-const API_URL = "https://productivityflow-backend-v3.onrender.com";
-
-interface StatCardProps {
-  title: string;
-  value: string | number;
-  icon: React.ComponentType<any>;
-  change?: string;
-  changeText?: string;
-  color: string;
-  trend?: 'up' | 'down' | 'neutral';
-}
-
-interface Analytics {
-  totalHours: number;
-  avgProductivity: number;
-  goalsCompleted: number;
-  activeMembers: number;
-  totalMembers: number;
-  hoursChange?: string;
-  productivityChange?: string;
-  weeklyTrends: WeeklyTrend[];
-  dailyActivity: DailyActivity[];
-  topApplications: TopApplication[];
-  securityAlerts: SecurityAlert[];
-}
-
-interface WeeklyTrend {
-  day: string;
-  productivity: number;
-  hours: number;
-  members: number;
-}
-
-interface DailyActivity {
-  hour: string;
-  activeUsers: number;
-  avgProductivity: number;
-}
-
-interface TopApplication {
-  name: string;
-  usage: number;
-  productivity: number;
-}
-
-interface SecurityAlert {
+interface TeamMember {
   id: string;
-  userId: string;
-  userName: string;
-  type: 'auto_clicker' | 'suspicious_pattern' | 'idle_time' | 'irregular_activity';
-  timestamp: string;
-  severity: 'low' | 'medium' | 'high';
-  description: string;
+  name: string;
+  role: string;
+  productivity_score: number;
+  focus_time: number;
+  unproductive_time: number;
+  status: 'online' | 'offline' | 'away';
+  last_active: string;
 }
 
-interface Performance {
-  topPerformers: Array<{
-    userName: string;
-    overallScore: number;
-  }>;
-  needsImprovement: Array<{
-    userName: string;
-    overallScore: number;
-  }>;
+interface ProductivityData {
+  date: string;
+  productive_hours: number;
+  unproductive_hours: number;
+  focus_score: number;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ title, value, icon, change, changeText, color, trend }) => {
-  const Icon = icon;
-  const getTrendColor = () => {
-    if (trend === 'up') return 'text-green-600';
-    if (trend === 'down') return 'text-red-600';
-    return 'text-gray-600';
-  };
+interface AppUsage {
+  app: string;
+  hours: number;
+  percentage: number;
+  category: 'productive' | 'unproductive' | 'neutral';
+}
 
-  const getTrendIcon = () => {
-    if (trend === 'up') return '↗';
-    if (trend === 'down') return '↘';
-    return '→';
-  };
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium text-gray-500">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center justify-between">
-          <div className="text-3xl font-bold text-gray-800">{value}</div>
-          <div className={`p-2 rounded-full bg-${color}-100`}>
-            <Icon className={`h-6 w-6 text-${color}-600`} />
-          </div>
-        </div>
-        {change && (
-          <p className="text-xs text-gray-500 mt-2">
-            <span className={`font-semibold ${getTrendColor()}`}>
-              {getTrendIcon()} {change}
-            </span> {changeText}
-          </p>
-        )}
-      </CardContent>
-    </Card>
-  );
-};
 
-export default function DashboardPage() {
-  const [analytics, setAnalytics] = useState<Analytics | null>(null);
-  const [performance, setPerformance] = useState<Performance | null>(null);
+export default function Dashboard() {
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [productivityData, setProductivityData] = useState<ProductivityData[]>([]);
+  const [appUsage, setAppUsage] = useState<AppUsage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
-  const [selectedTimeframe, setSelectedTimeframe] = useState<'week' | 'month'>('week');
 
   useEffect(() => {
-    fetchAnalytics();
-    
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(fetchAnalytics, 30000);
-    
-    return () => clearInterval(interval);
-  }, [retryCount, selectedTimeframe]);
+    loadDashboardData();
+  }, []);
 
-  const fetchAnalytics = async () => {
+  const loadDashboardData = async () => {
     try {
       setLoading(true);
       setError(null);
-      console.log("Fetching teams...");
-      
-      // Add timeout for requests
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
-      
-      const teamsResponse = await fetch(`${API_URL}/api/teams`, {
-        signal: controller.signal,
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
+
+      // Mock data for demonstration
+      const mockTeamMembers: TeamMember[] = [
+        {
+          id: '1',
+          name: 'Sarah Johnson',
+          role: 'Software Engineer',
+          productivity_score: 85,
+          focus_time: 6.5,
+          unproductive_time: 1.5,
+          status: 'online',
+          last_active: '2 minutes ago'
+        },
+        {
+          id: '2',
+          name: 'Mike Chen',
+          role: 'Product Manager',
+          productivity_score: 78,
+          focus_time: 5.8,
+          unproductive_time: 2.2,
+          status: 'away',
+          last_active: '15 minutes ago'
+        },
+        {
+          id: '3',
+          name: 'Emily Davis',
+          role: 'UX Designer',
+          productivity_score: 92,
+          focus_time: 7.2,
+          unproductive_time: 0.8,
+          status: 'online',
+          last_active: '1 minute ago'
         }
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!teamsResponse.ok) {
-        if (teamsResponse.status === 401) {
-          throw new Error("Authentication required. Please log in again.");
-        } else if (teamsResponse.status >= 500) {
-          throw new Error("Server error. Please try again later.");
-        } else {
-          throw new Error(`Failed to fetch teams (${teamsResponse.status})`);
-        }
-      }
-      
-      const teamsData = await teamsResponse.json();
-      console.log("Teams data:", teamsData);
-      
-      // Handle API errors gracefully
-      if (teamsData.error) {
-        throw new Error(teamsData.error);
-      }
-      
-      const teams = teamsData.teams || [];
-      
-      if (teams.length === 0) {
-        setError("No teams found. Create a team to get started.");
-        return;
-      }
-      
-      const firstTeamId = teams[0].id;
-      console.log("Fetching stats for team:", firstTeamId);
-      
-      // Fetch both analytics and performance data with timeout
-      const fetchWithTimeout = (url: string) => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
-        
-        return fetch(url, { 
-          signal: controller.signal,
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-          }
-        }).finally(() => clearTimeout(timeoutId));
-      };
-      
-      const [analyticsResponse, performanceResponse] = await Promise.allSettled([
-        fetchWithTimeout(`${API_URL}/api/teams/${firstTeamId}/stats`),
-        fetchWithTimeout(`${API_URL}/api/teams/${firstTeamId}/performance`)
-      ]);
-      
-      // Handle analytics response
-      if (analyticsResponse.status === 'fulfilled' && analyticsResponse.value.ok) {
-        const analyticsData = await analyticsResponse.value.json();
-        console.log("Analytics data:", analyticsData);
-        
-        // Enhance with mock data for visualizations
-        const enhancedAnalytics = {
-          ...analyticsData,
-          weeklyTrends: generateWeeklyTrends(),
-          dailyActivity: generateDailyActivity(),
-          topApplications: generateTopApplications(),
-          securityAlerts: generateSecurityAlerts()
-        };
-        
-        setAnalytics(enhancedAnalytics);
-      } else {
-        console.error("Failed to fetch analytics:", analyticsResponse);
-        // Set default analytics with mock visualization data
-        setAnalytics({
-          totalHours: 0,
-          avgProductivity: 0,
-          goalsCompleted: 0,
-          activeMembers: 0,
-          totalMembers: teams[0]?.memberCount || 0,
-          weeklyTrends: generateWeeklyTrends(),
-          dailyActivity: generateDailyActivity(),
-          topApplications: generateTopApplications(),
-          securityAlerts: generateSecurityAlerts()
-        });
-      }
-      
-      // Handle performance response
-      if (performanceResponse.status === 'fulfilled' && performanceResponse.value.ok) {
-        const performanceData = await performanceResponse.value.json();
-        console.log("Performance data:", performanceData);
-        setPerformance(performanceData);
-      } else {
-        console.error("Failed to fetch performance:", performanceResponse);
-        // Set default performance to prevent white screen
-        setPerformance({
-          topPerformers: [],
-          needsImprovement: []
-        });
-      }
-      
-    } catch (error: any) {
-      console.error("Error fetching analytics:", error);
-      
-      let errorMessage = "Failed to load dashboard data. Please try again.";
-      
-      if (error.name === 'AbortError') {
-        errorMessage = "Request timed out. Please check your connection.";
-      } else if (error.message.includes('Failed to fetch')) {
-        errorMessage = "Cannot connect to server. Please check your internet connection.";
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      setError(errorMessage);
+      ];
+
+      const mockProductivityData: ProductivityData[] = [
+        { date: 'Mon', productive_hours: 6.2, unproductive_hours: 1.8, focus_score: 78 },
+        { date: 'Tue', productive_hours: 7.1, unproductive_hours: 0.9, focus_score: 89 },
+        { date: 'Wed', productive_hours: 5.8, unproductive_hours: 2.2, focus_score: 72 },
+        { date: 'Thu', productive_hours: 6.5, unproductive_hours: 1.5, focus_score: 81 },
+        { date: 'Fri', productive_hours: 5.9, unproductive_hours: 2.1, focus_score: 74 }
+      ];
+
+      const mockAppUsage: AppUsage[] = [
+        { app: 'VS Code', hours: 4.2, percentage: 35, category: 'productive' },
+        { app: 'Slack', hours: 2.1, percentage: 18, category: 'neutral' },
+        { app: 'Chrome', hours: 1.8, percentage: 15, category: 'productive' },
+        { app: 'Figma', hours: 1.5, percentage: 13, category: 'productive' },
+        { app: 'Spotify', hours: 1.2, percentage: 10, category: 'unproductive' },
+        { app: 'Other', hours: 1.2, percentage: 9, category: 'neutral' }
+      ];
+
+      setTeamMembers(mockTeamMembers);
+      setProductivityData(mockProductivityData);
+      setAppUsage(mockAppUsage);
+
+    } catch (err) {
+      setError('Failed to load dashboard data. Please try again.');
+      console.error('Dashboard loading error:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  // Mock data generators for visualizations
-  const generateWeeklyTrends = (): WeeklyTrend[] => {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return days.map(day => ({
-      day,
-      productivity: Math.floor(Math.random() * 40) + 60, // 60-100%
-      hours: Math.floor(Math.random() * 4) + 6, // 6-10 hours
-      members: Math.floor(Math.random() * 3) + 2 // 2-5 members
-    }));
-  };
-
-  const generateDailyActivity = (): DailyActivity[] => {
-    return Array.from({ length: 24 }, (_, i) => ({
-      hour: `${i}:00`,
-      activeUsers: Math.floor(Math.random() * 5) + 1,
-      avgProductivity: Math.floor(Math.random() * 30) + 70
-    }));
-  };
-
-  const generateTopApplications = (): TopApplication[] => {
-    const apps = [
-      { name: 'VS Code', usage: 45, productivity: 95 },
-      { name: 'Chrome', usage: 30, productivity: 75 },
-      { name: 'Slack', usage: 15, productivity: 60 },
-      { name: 'Terminal', usage: 10, productivity: 90 }
-    ];
-    return apps;
-  };
-
-  const generateSecurityAlerts = (): SecurityAlert[] => {
-    return [
-      {
-        id: '1',
-        userId: 'user1',
-        userName: 'John Doe',
-        type: 'suspicious_pattern',
-        timestamp: new Date().toISOString(),
-        severity: 'medium',
-        description: 'Unusual activity pattern detected - consistent clicking intervals'
-      }
-    ];
-  };
-
-  const handleRetry = () => {
-    setRetryCount(prev => prev + 1);
-  };
-
-  const displayValue = (value: number | null | undefined, suffix = '') => {
-    if (loading) return '...';
-    return value !== null && value !== undefined ? `${value}${suffix}` : '0' + suffix;
-  };
-
-  const getProductivityTrend = () => {
-    if (!analytics?.weeklyTrends) return 'neutral';
-    const current = analytics.weeklyTrends[analytics.weeklyTrends.length - 1]?.productivity || 0;
-    const previous = analytics.weeklyTrends[analytics.weeklyTrends.length - 2]?.productivity || 0;
-    if (current > previous) return 'up';
-    if (current < previous) return 'down';
-    return 'neutral';
-  };
-
-  const renderPerformanceSection = () => {
-    if (loading) {
-      return (
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <h4 className="font-semibold text-green-600 mb-2">🏆 Top Performers (Raise Candidates)</h4>
-            <div className="text-sm text-gray-500">Loading...</div>
-          </div>
-          <div>
-            <h4 className="font-semibold text-orange-600 mb-2">⚠️ Needs Improvement</h4>
-            <div className="text-sm text-gray-500">Loading...</div>
-          </div>
-        </div>
-      );
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'online': return 'bg-green-100 text-green-800';
+      case 'away': return 'bg-yellow-100 text-yellow-800';
+      case 'offline': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
+  };
 
-    if (!performance || (!performance.topPerformers?.length && !performance.needsImprovement?.length)) {
-      return (
-        <div className="text-center py-8">
-          <p className="text-gray-500">No performance data available yet.</p>
-          <p className="text-sm text-gray-400">Add some activity data to see performance analysis.</p>
-        </div>
-      );
+  const getProductivityColor = (score: number) => {
+    if (score >= 90) return 'text-green-600';
+    if (score >= 80) return 'text-blue-600';
+    if (score >= 70) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getCategoryColor = (category: string) => {
+    switch (category) {
+      case 'productive': return '#10b981';
+      case 'unproductive': return '#ef4444';
+      case 'neutral': return '#6b7280';
+      default: return '#6b7280';
     }
+  };
 
+  const totalProductiveHours = teamMembers.reduce((sum, member) => sum + member.focus_time, 0);
+  const totalUnproductiveHours = teamMembers.reduce((sum, member) => sum + member.unproductive_time, 0);
+  const averageProductivity = Math.round(teamMembers.reduce((sum, member) => sum + member.productivity_score, 0) / teamMembers.length);
+
+  if (loading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2">
-        <div>
-          <h4 className="font-semibold text-green-600 mb-2">🏆 Top Performers (Raise Candidates)</h4>
-          <div className="space-y-2 text-sm">
-            {performance.topPerformers?.length > 0 ? (
-              performance.topPerformers.map((performer, index) => (
-                <div key={index} className="flex justify-between items-center p-2 bg-green-50 rounded">
-                  <span>{performer.userName}</span>
-                  <span className="text-green-600 font-medium">{performer.overallScore}% score</span>
-                </div>
-              ))
-            ) : (
-              <div className="text-gray-500 text-center py-4">
-                No top performers yet (need 90%+ score)
-              </div>
-            )}
-          </div>
+      <div className="p-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
-        <div>
-          <h4 className="font-semibold text-orange-600 mb-2">⚠️ Needs Improvement</h4>
-          <div className="space-y-2 text-sm">
-            {performance.needsImprovement?.length > 0 ? (
-              performance.needsImprovement.map((performer, index) => (
-                <div key={index} className="flex justify-between items-center p-2 bg-orange-50 rounded">
-                  <span>{performer.userName}</span>
-                  <span className="text-orange-600 font-medium">{performer.overallScore}% score</span>
-                </div>
-              ))
-            ) : (
-              <div className="text-gray-500 text-center py-4">
-                No underperformers (everyone above 60%)
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderWeeklyTrendsChart = () => {
-    if (!analytics?.weeklyTrends) return null;
-
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <TrendingUp className="mr-2 h-5 w-5" />
-            Weekly Productivity Trends
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={analytics.weeklyTrends}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="day" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="productivity" fill="#3b82f6" name="Productivity %" />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-    );
-  };
-
-  const renderDailyActivityChart = () => {
-    if (!analytics?.dailyActivity) return null;
-
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Activity className="mr-2 h-5 w-5" />
-            Daily Activity Pattern
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={analytics.dailyActivity}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="hour" />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="avgProductivity" stroke="#10b981" name="Avg Productivity %" />
-              <Line type="monotone" dataKey="activeUsers" stroke="#f59e0b" name="Active Users" />
-            </LineChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-    );
-  };
-
-  const renderTopApplicationsChart = () => {
-    if (!analytics?.topApplications) return null;
-
-    const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
-
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <BarChart3 className="mr-2 h-5 w-5" />
-            Top Productive Applications
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={analytics.topApplications}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, usage }) => `${name} (${usage}%)`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="usage"
-                >
-                  {analytics.topApplications.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="space-y-2">
-              {analytics.topApplications.map((app, index) => (
-                <div key={app.name} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                  <span className="text-sm font-medium">{app.name}</span>
-                  <div className="text-right">
-                    <div className="text-sm text-gray-600">{app.usage}% usage</div>
-                    <div className="text-xs text-green-600">{app.productivity}% productive</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-
-  const renderSecurityAlerts = () => {
-    if (!analytics?.securityAlerts?.length) return null;
-
-    return (
-      <Card className="border-orange-200">
-        <CardHeader>
-          <CardTitle className="flex items-center text-orange-600">
-            <Shield className="mr-2 h-5 w-5" />
-            Security Alerts
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {analytics.securityAlerts.map(alert => (
-              <div key={alert.id} className="flex items-center justify-between p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <span className="font-medium">{alert.userName}</span>
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      alert.severity === 'high' ? 'bg-red-100 text-red-800' :
-                      alert.severity === 'medium' ? 'bg-orange-100 text-orange-800' :
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {alert.severity}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600 mt-1">{alert.description}</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {new Date(alert.timestamp).toLocaleString()}
-                  </p>
-                </div>
-                <button className="px-3 py-1 text-sm bg-orange-100 text-orange-700 rounded hover:bg-orange-200">
-                  Review
-                </button>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-
-  // Show error state
-  if (error && !loading) {
-    return (
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-800">Welcome back, Manager!</h1>
-          <p className="text-gray-500">Dashboard</p>
-        </div>
-        
-        <Card className="border-red-200">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Unable to Load Dashboard</h3>
-            <p className="text-gray-600 text-center mb-4 max-w-md">{error}</p>
-            <button
-              onClick={handleRetry}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-            >
-              <span>Try Again</span>
-            </button>
-          </CardContent>
-        </Card>
       </div>
     );
   }
 
-  // Show loading state
-  if (loading) {
+  if (error) {
     return (
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-800">Welcome back, Manager!</h1>
-          <p className="text-gray-500">Loading your dashboard...</p>
-        </div>
-        
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i}>
-              <CardContent className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        
+      <div className="p-8">
         <Card>
-          <CardContent className="flex items-center justify-center py-12">
+          <CardContent className="flex items-center justify-center h-64">
             <div className="text-center">
-              <Loader2 className="h-8 w-8 animate-spin text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">Loading performance data...</p>
+              <Activity className="w-12 h-12 text-red-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Error Loading Dashboard</h3>
+              <p className="text-gray-600 mb-4">{error}</p>
+              <Button onClick={loadDashboardData}>Try Again</Button>
             </div>
           </CardContent>
         </Card>
@@ -612,117 +190,185 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-800">Welcome back, Manager!</h1>
-          <p className="text-gray-500">Here's what's happening with your team's productivity today.</p>
-          <p className="text-xs text-gray-400 mt-1">Auto-refreshing every 30 seconds</p>
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setSelectedTimeframe('week')}
-            className={`px-3 py-1 rounded-md text-sm ${
-              selectedTimeframe === 'week' 
-                ? 'bg-blue-100 text-blue-700' 
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            Week
-          </button>
-          <button
-            onClick={() => setSelectedTimeframe('month')}
-            className={`px-3 py-1 rounded-md text-sm ${
-              selectedTimeframe === 'month' 
-                ? 'bg-blue-100 text-blue-700' 
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            Month
-          </button>
-        </div>
+    <div className="p-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Team Dashboard</h1>
+        <p className="text-gray-600">Monitor team productivity and performance in real-time</p>
       </div>
 
-      {/* Key Metrics Cards */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard 
-          title="Total Team Hours" 
-          value={displayValue(analytics?.totalHours, 'h')} 
-          icon={Clock} 
-          change={analytics?.hoursChange || ""} 
-          changeText="from yesterday" 
-          color="blue"
-          trend={getProductivityTrend()}
-        />
-        <StatCard 
-          title="Avg Productivity" 
-          value={displayValue(analytics?.avgProductivity, '%')} 
-          icon={TrendingUp} 
-          change={analytics?.productivityChange || ""} 
-          changeText="from last week" 
-          color="green"
-          trend={getProductivityTrend()}
-        />
-        <StatCard 
-          title="Goals Completed" 
-          value={displayValue(analytics?.goalsCompleted)} 
-          icon={Target} 
-          change="" 
-          changeText="" 
-          color="orange" 
-        />
-        <StatCard 
-          title="Active Members" 
-          value={displayValue(analytics?.activeMembers)} 
-          icon={Users} 
-          change={analytics?.totalMembers ? `/ ${analytics.totalMembers}` : ""} 
-          changeText="currently tracking" 
-          color="teal" 
-        />
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Team Members</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{teamMembers.length}</div>
+            <p className="text-xs text-muted-foreground">
+              {teamMembers.filter(m => m.status === 'online').length} online
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Productive Hours</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalProductiveHours.toFixed(1)}h</div>
+            <p className="text-xs text-muted-foreground">
+              +12% from yesterday
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Focus Score</CardTitle>
+            <Target className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{averageProductivity}%</div>
+            <p className="text-xs text-muted-foreground">
+              Team average
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Unproductive Time</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalUnproductiveHours.toFixed(1)}h</div>
+            <p className="text-xs text-muted-foreground">
+              -8% from yesterday
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Security Alerts */}
-      {renderSecurityAlerts()}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Productivity Trend */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <BarChart3 className="w-5 h-5 mr-2 text-blue-500" />
+              Weekly Productivity Trend
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={productivityData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="focus_score" stroke="#3b82f6" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Charts Grid */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {renderWeeklyTrendsChart()}
-        {renderDailyActivityChart()}
+        {/* App Usage */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <PieChart className="w-5 h-5 mr-2 text-green-500" />
+              App Usage Distribution
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={appUsage}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ app, percentage }) => `${app} ${percentage}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="percentage"
+                  >
+                    {appUsage.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={getCategoryColor(entry.category)} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Top Applications */}
-      {renderTopApplicationsChart()}
-
-      {/* Performance Analysis Section */}
+      {/* Team Members */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <TrendingUp className="mr-2 h-5 w-5" />
-            Performance Analysis
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Users className="w-5 h-5 mr-2 text-purple-500" />
+              Team Members
+            </div>
+            <div className="flex space-x-2">
+              <Button variant="outline" size="sm">
+                <Eye className="w-4 h-4 mr-2" />
+                View Details
+              </Button>
+              <Button variant="outline" size="sm">
+                <Download className="w-4 h-4 mr-2" />
+                Export Report
+              </Button>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {renderPerformanceSection()}
-          <div className="mt-4 p-3 bg-blue-50 rounded">
-            <p className="text-sm text-blue-700">
-              <strong>Analysis:</strong> Efficiency calculated as (Productive Hours / Total Hours) × 100. 
-              Consider raises for 90%+ efficiency, coaching for &lt;60% efficiency.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-      
-      {/* Debug info */}
-      <Card className="bg-gray-50">
-        <CardHeader>
-          <CardTitle className="text-sm">Debug Info</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-xs text-gray-600">
-            <p>API URL: {API_URL}</p>
-            <p>Loading: {loading ? 'Yes' : 'No'}</p>
-            <p>Analytics: {analytics ? 'Loaded' : 'Not loaded'}</p>
-            <p>Timeframe: {selectedTimeframe}</p>
+          <div className="space-y-4">
+            {teamMembers.map((member) => (
+              <div key={member.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                <div className="flex items-center space-x-4">
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
+                      <span className="text-sm font-medium text-gray-700">
+                        {member.name.split(' ').map(n => n[0]).join('')}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-900">{member.name}</h3>
+                    <p className="text-sm text-gray-500">{member.role}</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-4">
+                  <div className="text-right">
+                    <div className={`text-sm font-medium ${getProductivityColor(member.productivity_score)}`}>
+                      {member.productivity_score}%
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {member.focus_time}h productive
+                    </div>
+                  </div>
+                  
+                  <Progress value={member.productivity_score} className="w-20" />
+                  
+                  <Badge className={getStatusColor(member.status)}>
+                    {member.status}
+                  </Badge>
+                  
+                  <div className="text-xs text-gray-500">
+                    {member.last_active}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>

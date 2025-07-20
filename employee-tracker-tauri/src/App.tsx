@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { OnboardingView } from "./components/OnboardingView";
-import { TrackingView } from "./components/TrackingView";
+import TrackingView from "./components/TrackingView";
 
 interface Session {
   teamId: string;

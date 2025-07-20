@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode, useState, useCallback } from 'react';
 import { AlertTriangle, RefreshCw, Home, Mail } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
@@ -50,28 +50,6 @@ export default class ErrorBoundary extends Component<Props, State> {
     // In a production app, you would send this to an error reporting service
     // this.reportError(error, errorInfo);
   }
-
-  private reportError = (error: Error, errorInfo: ErrorInfo) => {
-    // Example error reporting - replace with your actual error reporting service
-    const errorReport = {
-      errorId: this.state.errorId,
-      message: error.message,
-      stack: error.stack,
-      componentStack: errorInfo.componentStack,
-      timestamp: new Date().toISOString(),
-      userAgent: navigator.userAgent,
-      url: window.location.href
-    };
-
-    // Send to error reporting service (e.g., Sentry, LogRocket, etc.)
-    console.log('Error report:', errorReport);
-    
-    // Example: fetch('/api/errors', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(errorReport)
-    // });
-  };
 
   private handleRetry = () => {
     this.setState({
@@ -173,7 +151,7 @@ Timestamp: ${new Date().toISOString()}
               </div>
 
               {/* Development error details */}
-              {process.env.NODE_ENV === 'development' && this.state.error && (
+              {typeof window !== 'undefined' && window.location.hostname === 'localhost' && this.state.error && (
                 <details className="mt-4">
                   <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800">
                     Error Details (Development)
@@ -215,14 +193,14 @@ export function withErrorBoundary<P extends object>(
 
 // Hook for functional components to handle errors
 export function useErrorHandler() {
-  const [error, setError] = React.useState<Error | null>(null);
+  const [error, setError] = useState<Error | null>(null);
 
-  const handleError = React.useCallback((error: Error) => {
+  const handleError = useCallback((error: Error) => {
     console.error('Error caught by useErrorHandler:', error);
     setError(error);
   }, []);
 
-  const clearError = React.useCallback(() => {
+  const clearError = useCallback(() => {
     setError(null);
   }, []);
 

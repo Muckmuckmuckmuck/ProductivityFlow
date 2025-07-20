@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Button } from './ui/Button';
@@ -63,7 +63,21 @@ interface ProductivityData {
   }>;
 }
 
-export default function TrackingView() {
+interface Session {
+  teamId: string;
+  teamName: string;
+  userId: string;
+  userName: string;
+  role: string;
+  token: string;
+}
+
+interface TrackingViewProps {
+  session: Session;
+  onLogout: () => void;
+}
+
+export default function TrackingView({ session, onLogout }: TrackingViewProps) {
   const [isTracking, setIsTracking] = useState(false);
   const [currentActivity, setCurrentActivity] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -217,9 +231,25 @@ export default function TrackingView() {
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="text-center">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Productivity Tracker</h1>
-        <p className="text-gray-600">Track your work activity and boost productivity</p>
+      <div className="flex items-center justify-between mb-6">
+        <div className="text-center flex-1">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Productivity Tracker</h1>
+          <p className="text-gray-600">Track your work activity and boost productivity</p>
+        </div>
+        <div className="flex items-center space-x-4">
+          <div className="text-right">
+            <p className="text-sm font-medium text-gray-900">{session.userName}</p>
+            <p className="text-xs text-gray-500">{session.teamName}</p>
+          </div>
+          <Button 
+            onClick={onLogout}
+            variant="outline"
+            size="sm"
+            className="text-red-600 border-red-300 hover:bg-red-50"
+          >
+            Logout
+          </Button>
+        </div>
       </div>
 
       {/* Main Tracking Card */}
@@ -404,7 +434,7 @@ export default function TrackingView() {
                         fill="#8884d8"
                         dataKey="time_minutes"
                       >
-                        {productivityData.app_breakdown.map((entry, index) => (
+                        {productivityData.app_breakdown.map((_, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>

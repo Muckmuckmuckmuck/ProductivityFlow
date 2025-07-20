@@ -1,4 +1,4 @@
-import React from 'react';
+import { useState, useEffect } from 'react';
 
 /**
  * Comprehensive API Utilities for ProductivityFlow
@@ -10,13 +10,6 @@ const API_URL = "https://productivityflow-backend-v3.onrender.com";
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
 const RETRY_ATTEMPTS = 3;
 const RETRY_DELAY = 1000; // 1 second
-
-// Request timeout utility
-const timeoutPromise = (ms: number): Promise<never> => {
-  return new Promise((_, reject) => {
-    setTimeout(() => reject(new Error('Request timeout')), ms);
-  });
-};
 
 // Retry utility
 const retry = async <T>(
@@ -400,9 +393,9 @@ export const api = {
 
 // React hook for network status
 export const useNetworkStatus = () => {
-  const [isOnline, setIsOnline] = React.useState(apiClient.isOnline());
+  const [isOnline, setIsOnline] = useState(apiClient.isOnline());
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handleNetworkChange = (online: boolean) => setIsOnline(online);
     
     apiClient.addNetworkListener(handleNetworkChange);

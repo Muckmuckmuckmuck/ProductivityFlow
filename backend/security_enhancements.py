@@ -12,7 +12,7 @@ import logging
 from functools import wraps
 from flask import request, jsonify, current_app
 import jwt
-from werkzeug.security import safe_str_cmp
+import hmac
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -201,7 +201,7 @@ def hash_sensitive_data(data: str) -> str:
 
 def verify_hash(data: str, hash_value: str) -> bool:
     """Verify hashed data"""
-    return safe_str_cmp(hash_sensitive_data(data), hash_value)
+    return hmac.compare_digest(hash_sensitive_data(data), hash_value)
 
 # --- SQL Injection Protection ---
 def escape_sql_like_pattern(pattern: str) -> str:
