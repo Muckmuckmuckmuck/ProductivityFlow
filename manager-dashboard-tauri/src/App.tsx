@@ -1,71 +1,34 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Sidebar from './components/Sidebar';
+import Dashboard from './pages/Dashboard';
+import TeamManagement from './pages/TeamManagement';
+import Analytics from './pages/Analytics';
+import Compliance from './pages/Compliance';
+import Billing from './pages/Billing';
 import ErrorBoundary from './components/ErrorBoundary';
-import { Sidebar } from './components/Sidebar';
-import DashboardPage from './pages/Dashboard';
-import TeamManagementPage from './pages/TeamManagement';
-import BillingPage from './pages/Billing';
-import CompliancePage from './pages/Compliance';
 
-interface LayoutProps {
-  children: React.ReactNode;
-  activeRoute: string;
-  onNavigate: (route: string) => void;
-}
-
-function Layout({ children, activeRoute, onNavigate }: LayoutProps) {
-  return (
-    <div className="flex min-h-screen bg-gray-50 font-sans">
-      <Sidebar activeRoute={activeRoute} onNavigate={onNavigate} />
-      <main className="flex-1 pl-64">
-        <div className="p-8">
-          <ErrorBoundary>
-            {children}
-          </ErrorBoundary>
-        </div>
-      </main>
-    </div>
-  );
-}
-
-export default function App() {
-  const [currentRoute, setCurrentRoute] = useState('/');
-
-  const handleNavigate = (route: string) => {
-    setCurrentRoute(route);
-  };
-
-  const renderPage = () => {
-    try {
-      switch (currentRoute) {
-        case '/':
-          return <DashboardPage />;
-        case '/team-management':
-          return <TeamManagementPage />;
-        case '/billing':
-          return <BillingPage />;
-        case '/compliance':
-          return <CompliancePage />;
-        default:
-          return <DashboardPage />;
-      }
-    } catch (error) {
-      console.error('Error rendering page:', error);
-      return (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-          <h3 className="text-red-800 font-medium">Page Error</h3>
-          <p className="text-red-600 text-sm">
-            Failed to load this page. Please try navigating to a different section.
-          </p>
-        </div>
-      );
-    }
-  };
-
+function App() {
   return (
     <ErrorBoundary>
-      <Layout activeRoute={currentRoute} onNavigate={handleNavigate}>
-        {renderPage()}
-      </Layout>
+      <Router>
+        <div className="flex h-screen bg-gray-100">
+          <Sidebar />
+          <main className="flex-1 overflow-auto">
+            <div className="p-8">
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/team" element={<TeamManagement />} />
+                <Route path="/analytics" element={<Analytics />} />
+                <Route path="/compliance" element={<Compliance />} />
+                <Route path="/billing" element={<Billing />} />
+              </Routes>
+            </div>
+          </main>
+        </div>
+      </Router>
     </ErrorBoundary>
   );
 }
+
+export default App;

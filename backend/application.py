@@ -30,6 +30,8 @@ from flask_mail import Mail, Message
 from apscheduler.schedulers.background import BackgroundScheduler
 import json
 import base64
+import numpy as np
+from collections import defaultdict
 
 # Load environment variables
 load_dotenv()
@@ -512,6 +514,38 @@ def create_app():
         logging.error(f"Scheduler initialization error in create_app: {e}")
     
     return application
+
+# Ensure database is initialized when the module is imported
+def ensure_initialization():
+    """Ensure database and scheduler are initialized"""
+    try:
+        with application.app_context():
+            if initialize_database():
+                logging.info("✅ Database initialization successful in ensure_initialization")
+            else:
+                logging.warning("⚠️ Database initialization failed in ensure_initialization")
+                # Fallback to simple initialization
+                try:
+                    init_db()
+                    logging.info("✅ Fallback database initialization successful")
+                except Exception as e:
+                    logging.error(f"❌ Fallback database initialization failed: {e}")
+        
+        # Initialize scheduler
+        try:
+            init_scheduler()
+            logging.info("✅ Scheduler initialization successful in ensure_initialization")
+        except Exception as e:
+            logging.error(f"❌ Scheduler initialization error in ensure_initialization: {e}")
+        
+        return True
+    except Exception as e:
+        logging.error(f"❌ Database initialization error in ensure_initialization: {e}")
+        return False
+
+# Call ensure_initialization when the module is imported
+if __name__ != '__main__':
+    ensure_initialization()
 
 # --- Utility Functions ---
 def generate_id(prefix):
@@ -1991,12 +2025,843 @@ def api_documentation():
         }
     })
 
-if __name__ == '__main__':
-    # Initialize database when running directly (development)
-    if initialize_database():
-        logging.info("✅ Database initialized successfully for development")
-    else:
-        logging.error("❌ Database initialization failed for development")
+@application.route('/api/analytics/burnout-risk', methods=['GET'])
+@conditional_rate_limit("10 per minute")
+def get_burnout_risk():
+    """Get burnout risk analysis for team members"""
+    try:
+        current_user_id = get_jwt_identity()
+        
+        # Get user's teams
+        user_teams = Team.query.filter_by(manager_id=current_user_id).all()
+        if not user_teams:
+            return jsonify({'error': 'No teams found'}), 404
+        
+        team_id = request.args.get('team_id', user_teams[0].id)
+        
+        # Get team members
+        team_members = User.query.filter_by(team_id=team_id).all()
+        
+        burnout_data = []
+        
+        for member in team_members:
+            # Get last 30 days of activity data
+            thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+            
+            activities = Activity.query.filter(
+                Activity.user_id == member.id,
+                Activity.timestamp >= thirty_days_ago
+            ).order_by(Activity.timestamp).all()
+            
+            if not activities:
+                continue
+            
+            # Calculate burnout risk factors
+            risk_factors = calculate_burnout_risk_factors(activities, member.id)
+            
+            burnout_data.append({
+                'user_id': member.id,
+                'user_name': member.username,
+                'risk_score': risk_factors['overall_risk'],
+                'risk_level': risk_factors['risk_level'],
+                'factors': risk_factors['factors'],
+                'trends': risk_factors['trends'],
+                'recommendations': risk_factors['recommendations']
+            })
+        
+        # Sort by risk score (highest first)
+        burnout_data.sort(key=lambda x: x['risk_score'], reverse=True)
+        
+        return jsonify({
+            'burnout_analysis': burnout_data,
+            'team_id': team_id,
+            'analysis_date': datetime.utcnow().isoformat()
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error in burnout risk analysis: {str(e)}")
+        return jsonify({'error': 'Failed to analyze burnout risk'}), 500
+
+def calculate_burnout_risk_factors(activities, user_id):
+    """Calculate burnout risk factors based on activity patterns"""
     
-    # Run development server
-    application.run(debug=True, host='0.0.0.0', port=5000)
+    if not activities:
+        return {
+            'overall_risk': 0,
+            'risk_level': 'low',
+            'factors': [],
+            'trends': {},
+            'recommendations': []
+        }
+    
+    # Group activities by day
+    daily_activities = defaultdict(list)
+    for activity in activities:
+        day = activity.timestamp.date()
+        daily_activities[day].append(activity)
+    
+    # Calculate risk factors
+    factors = []
+    trends = {}
+    risk_score = 0
+    
+    # 1. Long working hours trend
+    daily_hours = []
+    for day, day_activities in daily_activities.items():
+        if day_activities:
+            start_time = min(a.timestamp for a in day_activities)
+            end_time = max(a.timestamp for a in day_activities)
+            hours = (end_time - start_time).total_seconds() / 3600
+            daily_hours.append(hours)
+    
+    if daily_hours:
+        avg_hours = np.mean(daily_hours)
+        max_hours = max(daily_hours)
+        
+        if avg_hours > 9:
+            factors.append({
+                'type': 'long_hours',
+                'severity': 'high' if avg_hours > 10 else 'medium',
+                'description': f'Average {avg_hours:.1f} hours per day',
+                'impact': 25
+            })
+            risk_score += 25
+        
+        if max_hours > 12:
+            factors.append({
+                'type': 'extreme_hours',
+                'severity': 'high',
+                'description': f'Peak day: {max_hours:.1f} hours',
+                'impact': 20
+            })
+            risk_score += 20
+    
+    # 2. Late night work pattern
+    late_night_sessions = 0
+    for day_activities in daily_activities.values():
+        for activity in day_activities:
+            if activity.timestamp.hour >= 22 or activity.timestamp.hour <= 6:
+                late_night_sessions += 1
+                break
+    
+    if late_night_sessions > len(daily_activities) * 0.3:  # More than 30% of days
+        factors.append({
+            'type': 'late_night_work',
+            'severity': 'medium',
+            'description': f'Late night work on {late_night_sessions} days',
+            'impact': 15
+        })
+        risk_score += 15
+    
+    # 3. Weekend work pattern
+    weekend_sessions = 0
+    for day, day_activities in daily_activities.items():
+        if day.weekday() >= 5 and day_activities:  # Saturday or Sunday
+            weekend_sessions += 1
+    
+    if weekend_sessions > 0:
+        factors.append({
+            'type': 'weekend_work',
+            'severity': 'medium',
+            'description': f'Weekend work on {weekend_sessions} days',
+            'impact': 10
+        })
+        risk_score += 10
+    
+    # 4. Context switching frequency
+    context_switches = 0
+    for day_activities in daily_activities.values():
+        if len(day_activities) > 1:
+            apps = [a.application_name for a in day_activities]
+            switches = sum(1 for i in range(1, len(apps)) if apps[i] != apps[i-1])
+            context_switches += switches
+    
+    avg_switches_per_day = context_switches / len(daily_activities) if daily_activities else 0
+    
+    if avg_switches_per_day > 50:
+        factors.append({
+            'type': 'high_context_switching',
+            'severity': 'medium',
+            'description': f'Average {avg_switches_per_day:.1f} context switches per day',
+            'impact': 15
+        })
+        risk_score += 15
+    
+    # 5. Declining productivity trend
+    if len(daily_activities) >= 7:
+        recent_days = sorted(daily_activities.keys())[-7:]
+        recent_productivity = []
+        
+        for day in recent_days:
+            day_activities = daily_activities[day]
+            if day_activities:
+                productive_time = sum(
+                    a.duration for a in day_activities 
+                    if a.is_productive
+                )
+                total_time = sum(a.duration for a in day_activities)
+                productivity = (productive_time / total_time * 100) if total_time > 0 else 0
+                recent_productivity.append(productivity)
+        
+        if len(recent_productivity) >= 3:
+            # Check if productivity is declining
+            first_half = np.mean(recent_productivity[:len(recent_productivity)//2])
+            second_half = np.mean(recent_productivity[len(recent_productivity)//2:])
+            
+            if second_half < first_half * 0.8:  # 20% decline
+                factors.append({
+                    'type': 'declining_productivity',
+                    'severity': 'high',
+                    'description': f'Productivity declined from {first_half:.1f}% to {second_half:.1f}%',
+                    'impact': 20
+                })
+                risk_score += 20
+    
+    # 6. No breaks pattern
+    long_sessions = 0
+    for day_activities in daily_activities.values():
+        if day_activities:
+            start_time = min(a.timestamp for a in day_activities)
+            end_time = max(a.timestamp for a in day_activities)
+            session_duration = (end_time - start_time).total_seconds() / 3600
+            
+            if session_duration > 4:  # Sessions longer than 4 hours without breaks
+                long_sessions += 1
+    
+    if long_sessions > len(daily_activities) * 0.5:  # More than 50% of days
+        factors.append({
+            'type': 'no_breaks',
+            'severity': 'medium',
+            'description': f'Long sessions without breaks on {long_sessions} days',
+            'impact': 10
+        })
+        risk_score += 10
+    
+    # Determine risk level
+    if risk_score >= 70:
+        risk_level = 'critical'
+        recommendations = [
+            'Immediate intervention recommended',
+            'Consider temporary workload reduction',
+            'Schedule wellness check-in',
+            'Encourage taking time off'
+        ]
+    elif risk_score >= 50:
+        risk_level = 'high'
+        recommendations = [
+            'Monitor closely',
+            'Encourage regular breaks',
+            'Review workload distribution',
+            'Consider flexible hours'
+        ]
+    elif risk_score >= 30:
+        risk_level = 'medium'
+        recommendations = [
+            'Regular check-ins',
+            'Encourage work-life balance',
+            'Monitor for escalation'
+        ]
+    else:
+        risk_level = 'low'
+        recommendations = [
+            'Continue current practices',
+            'Regular wellness check-ins'
+        ]
+    
+    # Add trend analysis
+    trends = {
+        'hours_trend': 'increasing' if avg_hours > 8 else 'stable',
+        'productivity_trend': 'declining' if risk_score >= 30 else 'stable',
+        'work_pattern': 'irregular' if late_night_sessions > 0 or weekend_sessions > 0 else 'regular'
+    }
+    
+    return {
+        'overall_risk': min(risk_score, 100),
+        'risk_level': risk_level,
+        'factors': factors,
+        'trends': trends,
+        'recommendations': recommendations
+    }
+
+@application.route('/api/analytics/distraction-profile', methods=['GET'])
+@conditional_rate_limit("10 per minute")
+def get_distraction_profile():
+    """Get anonymous distraction profile for the team"""
+    try:
+        current_user_id = get_jwt_identity()
+        
+        # Get user's teams
+        user_teams = Team.query.filter_by(manager_id=current_user_id).all()
+        if not user_teams:
+            return jsonify({'error': 'No teams found'}), 404
+        
+        team_id = request.args.get('team_id', user_teams[0].id)
+        
+        # Get team members
+        team_members = User.query.filter_by(team_id=team_id).all()
+        member_ids = [member.id for member in team_members]
+        
+        # Get last 7 days of activity
+        seven_days_ago = datetime.utcnow() - timedelta(days=7)
+        
+        activities = Activity.query.filter(
+            Activity.user_id.in_(member_ids),
+            Activity.timestamp >= seven_days_ago,
+            Activity.is_productive == False  # Focus on unproductive activities
+        ).all()
+        
+        # Categorize distractions
+        distraction_categories = {
+            'social_media': ['facebook', 'twitter', 'instagram', 'linkedin', 'tiktok', 'youtube'],
+            'news_sites': ['cnn', 'bbc', 'reuters', 'nytimes', 'washingtonpost', 'reddit'],
+            'shopping': ['amazon', 'ebay', 'etsy', 'walmart', 'target'],
+            'entertainment': ['netflix', 'hulu', 'disney', 'spotify', 'pandora'],
+            'gaming': ['steam', 'minecraft', 'roblox', 'fortnite'],
+            'internal_chat': ['slack', 'teams', 'discord', 'zoom', 'skype'],
+            'email': ['gmail', 'outlook', 'yahoo', 'mail'],
+            'other': []
+        }
+        
+        app_usage = defaultdict(int)
+        total_unproductive_time = 0
+        
+        for activity in activities:
+            app_name = activity.application_name.lower()
+            duration = activity.duration or 0
+            total_unproductive_time += duration
+            
+            categorized = False
+            for category, keywords in distraction_categories.items():
+                if any(keyword in app_name for keyword in keywords):
+                    app_usage[category] += duration
+                    categorized = True
+                    break
+            
+            if not categorized:
+                app_usage['other'] += duration
+        
+        # Calculate percentages and format data
+        distraction_profile = []
+        for category, time in app_usage.items():
+            if time > 0:
+                percentage = (time / total_unproductive_time * 100) if total_unproductive_time > 0 else 0
+                distraction_profile.append({
+                    'category': category.replace('_', ' ').title(),
+                    'time_minutes': time / 60,  # Convert to minutes
+                    'percentage': round(percentage, 1),
+                    'impact': 'high' if percentage > 30 else 'medium' if percentage > 15 else 'low'
+                })
+        
+        # Sort by percentage (highest first)
+        distraction_profile.sort(key=lambda x: x['percentage'], reverse=True)
+        
+        # Generate insights
+        insights = []
+        if distraction_profile:
+            top_distraction = distraction_profile[0]
+            if top_distraction['percentage'] > 40:
+                insights.append(f"{top_distraction['category']} is the biggest team distraction ({top_distraction['percentage']}% of unproductive time)")
+            
+            if any(d['category'] == 'Social Media' and d['percentage'] > 25 for d in distraction_profile):
+                insights.append("Social media usage is significantly impacting team productivity")
+            
+            if any(d['category'] == 'Internal Chat' and d['percentage'] > 20 for d in distraction_profile):
+                insights.append("Internal communication tools may be causing context switching")
+        
+        return jsonify({
+            'distraction_profile': distraction_profile,
+            'total_unproductive_time_minutes': total_unproductive_time / 60,
+            'team_size': len(team_members),
+            'insights': insights,
+            'analysis_period': '7 days',
+            'analysis_date': datetime.utcnow().isoformat()
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error in distraction profile analysis: {str(e)}")
+        return jsonify({'error': 'Failed to analyze distraction profile'}), 500
+
+@application.route('/api/employee/daily-summary', methods=['GET'])
+@conditional_rate_limit("10 per minute")
+def get_daily_summary():
+    """Get personalized daily summary for employee"""
+    try:
+        current_user_id = get_jwt_identity()
+        
+        # Get today's activities
+        today = datetime.utcnow().date()
+        start_of_day = datetime.combine(today, datetime.min.time())
+        end_of_day = datetime.combine(today, datetime.max.time())
+        
+        activities = Activity.query.filter(
+            Activity.user_id == current_user_id,
+            Activity.timestamp >= start_of_day,
+            Activity.timestamp <= end_of_day
+        ).order_by(Activity.timestamp).all()
+        
+        if not activities:
+            return jsonify({
+                'summary': 'No activity recorded today',
+                'accomplishments': [],
+                'focus_time': 0,
+                'breaks_taken': 0,
+                'productivity_score': 0
+            })
+        
+        # Calculate summary metrics
+        total_time = sum(a.duration or 0 for a in activities)
+        productive_time = sum(a.duration or 0 for a in activities if a.is_productive)
+        productivity_score = (productive_time / total_time * 100) if total_time > 0 else 0
+        
+        # Group activities by application
+        app_activities = defaultdict(list)
+        for activity in activities:
+            app_activities[activity.application_name].append(activity)
+        
+        # Generate accomplishments
+        accomplishments = []
+        
+        # Most productive app
+        if app_activities:
+            most_productive_app = max(app_activities.keys(), 
+                key=lambda app: sum(a.duration or 0 for a in app_activities[app] if a.is_productive))
+            productive_time_in_app = sum(a.duration or 0 for a in app_activities[most_productive_app] if a.is_productive)
+            if productive_time_in_app > 0:
+                accomplishments.append(f"Spent {productive_time_in_app/60:.1f} minutes focused on {most_productive_app}")
+        
+        # Longest focus session
+        focus_sessions = []
+        current_session = []
+        
+        for activity in activities:
+            if activity.is_productive:
+                current_session.append(activity)
+            else:
+                if current_session:
+                    session_duration = sum(a.duration or 0 for a in current_session)
+                    if session_duration > 30 * 60:  # 30 minutes
+                        focus_sessions.append(session_duration)
+                    current_session = []
+        
+        if current_session:  # Don't forget the last session
+            session_duration = sum(a.duration or 0 for a in current_session)
+            if session_duration > 30 * 60:
+                focus_sessions.append(session_duration)
+        
+        if focus_sessions:
+            longest_session = max(focus_sessions)
+            accomplishments.append(f"Completed a {longest_session/60:.1f}-minute focused work session")
+        
+        # Break analysis
+        breaks = 0
+        for i in range(1, len(activities)):
+            time_diff = (activities[i].timestamp - activities[i-1].timestamp).total_seconds()
+            if time_diff > 5 * 60:  # 5 minute gap
+                breaks += 1
+        
+        if breaks > 0:
+            accomplishments.append(f"Took {breaks} breaks throughout the day")
+        
+        # Productivity milestones
+        if productivity_score >= 80:
+            accomplishments.append("Achieved high productivity score (80%+)")
+        elif productivity_score >= 60:
+            accomplishments.append("Maintained good productivity throughout the day")
+        
+        # Time-based accomplishments
+        if total_time >= 8 * 60 * 60:  # 8 hours
+            accomplishments.append("Completed a full workday")
+        elif total_time >= 6 * 60 * 60:  # 6 hours
+            accomplishments.append("Put in a solid day's work")
+        
+        # If no specific accomplishments, add general ones
+        if not accomplishments:
+            accomplishments = [
+                "Started tracking your productivity",
+                "Began building better work habits"
+            ]
+        
+        return jsonify({
+            'summary': f"Today you worked for {total_time/60/60:.1f} hours with {productivity_score:.1f}% productivity",
+            'accomplishments': accomplishments,
+            'focus_time_hours': productive_time / 60 / 60,
+            'breaks_taken': breaks,
+            'productivity_score': round(productivity_score, 1),
+            'total_time_hours': total_time / 60 / 60,
+            'date': today.isoformat()
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error generating daily summary: {str(e)}")
+        return jsonify({'error': 'Failed to generate daily summary'}), 500
+
+# Add security imports at the top
+from security_enhancements import (
+    require_authentication, require_manager_role, validate_json_payload,
+    validate_email, validate_team_code, validate_username, validate_password_strength,
+    sanitize_string, handle_security_error, add_security_headers,
+    get_client_ip, generate_secure_token, escape_html
+)
+
+# ... existing imports and configuration ...
+
+# Enhanced security configuration
+application.config['SECURE_HEADERS'] = True
+application.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+# Add security headers to all responses
+@application.after_request
+def add_security_headers_after_request(response):
+    """Add security headers to all responses"""
+    response = add_security_headers(response)
+    
+    # Add CORS headers
+    origin = request.headers.get('Origin')
+    if origin:
+        response.headers.add('Access-Control-Allow-Origin', origin)
+    else:
+        response.headers.add('Access-Control-Allow-Origin', '*')
+    
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    response.headers.add('Access-Control-Allow-Headers', 
+                       'Content-Type,Authorization,X-Requested-With,Accept,Origin')
+    response.headers.add('Access-Control-Allow-Methods', 
+                       'GET,PUT,POST,DELETE,OPTIONS,PATCH,HEAD')
+    
+    return response
+
+# Enhanced error handlers with security logging
+@application.errorhandler(400)
+def bad_request(error):
+    """Handle bad request errors with security logging"""
+    client_ip = get_client_ip()
+    logger.warning(f"Bad request from {client_ip}: {request.url}")
+    return jsonify({'error': 'Bad request', 'details': str(error)}), 400
+
+@application.errorhandler(401)
+def unauthorized(error):
+    """Handle unauthorized access with security logging"""
+    client_ip = get_client_ip()
+    logger.warning(f"Unauthorized access attempt from {client_ip}: {request.url}")
+    return jsonify({'error': 'Unauthorized access'}), 401
+
+@application.errorhandler(403)
+def forbidden(error):
+    """Handle forbidden access with security logging"""
+    client_ip = get_client_ip()
+    logger.warning(f"Forbidden access attempt from {client_ip}: {request.url}")
+    return jsonify({'error': 'Access forbidden'}), 403
+
+@application.errorhandler(404)
+def not_found(error):
+    """Handle not found errors"""
+    return jsonify({'error': 'Resource not found'}), 404
+
+@application.errorhandler(405)
+def method_not_allowed(error):
+    """Handle method not allowed with security logging"""
+    client_ip = get_client_ip()
+    logger.warning(f"Invalid method from {client_ip}: {request.method} {request.url}")
+    return jsonify({'error': 'Method not allowed'}), 405
+
+@application.errorhandler(429)
+def rate_limit_exceeded(error):
+    """Handle rate limit exceeded with security logging"""
+    client_ip = get_client_ip()
+    logger.warning(f"Rate limit exceeded from {client_ip}: {request.url}")
+    return jsonify({'error': 'Rate limit exceeded. Please try again later.'}), 429
+
+@application.errorhandler(500)
+def internal_server_error(error):
+    """Handle internal server errors with security logging"""
+    client_ip = get_client_ip()
+    logger.error(f"Internal server error from {client_ip}: {str(error)}")
+    return jsonify({'error': 'Internal server error'}), 500
+
+@application.errorhandler(503)
+def service_unavailable(error):
+    """Handle service unavailable errors"""
+    return jsonify({'error': 'Service temporarily unavailable'}), 503
+
+# Enhanced input validation for all endpoints
+def validate_team_id(team_id):
+    """Validate team ID format"""
+    if not team_id or not isinstance(team_id, str):
+        raise InputValidationError("Invalid team ID")
+    
+    # Team ID should be a valid UUID or team code
+    if not (validate_uuid(team_id) or validate_team_code(team_id)):
+        raise InputValidationError("Invalid team ID format")
+    
+    return team_id
+
+def validate_user_id(user_id):
+    """Validate user ID format"""
+    if not user_id or not isinstance(user_id, str):
+        raise InputValidationError("Invalid user ID")
+    
+    # User ID should be a valid UUID
+    if not validate_uuid(user_id):
+        raise InputValidationError("Invalid user ID format")
+    
+    return user_id
+
+# Enhanced registration endpoint with comprehensive validation
+@application.route('/api/auth/register', methods=['POST'])
+@conditional_rate_limit("5 per minute")
+def register_user():
+    """Enhanced user registration with comprehensive validation"""
+    try:
+        # Validate request
+        if not request.is_json:
+            return jsonify({'error': 'Request must contain valid JSON'}), 400
+        
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['email', 'password', 'name']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+            if not data[field]:
+                return jsonify({'error': f'Required field cannot be empty: {field}'}), 400
+        
+        # Sanitize and validate email
+        email = sanitize_string(data['email'].lower().strip())
+        if not validate_email(email):
+            return jsonify({'error': 'Invalid email format'}), 400
+        
+        # Validate password strength
+        password = data['password']
+        if not validate_password_strength(password):
+            return jsonify({'error': 'Password must be at least 8 characters with uppercase, lowercase, number, and special character'}), 400
+        
+        # Sanitize name
+        name = sanitize_string(data['name'], 120)
+        if len(name) < 2:
+            return jsonify({'error': 'Name must be at least 2 characters long'}), 400
+        
+        # Check if user already exists
+        existing_user = User.query.filter_by(email=email).first()
+        if existing_user:
+            return jsonify({'error': 'User with this email already exists'}), 409
+        
+        # Create new user with enhanced security
+        user_id = generate_id('user')
+        password_hash = hash_password(password)
+        verification_token = generate_verification_token()
+        
+        new_user = User(
+            id=user_id,
+            email=email,
+            password_hash=password_hash,
+            name=name,
+            verification_token=verification_token
+        )
+        
+        db.session.add(new_user)
+        db.session.commit()
+        
+        # Send verification email
+        try:
+            send_verification_email(email, verification_token)
+        except Exception as e:
+            logger.error(f"Failed to send verification email: {e}")
+            # Don't fail registration if email fails
+        
+        logger.info(f"New user registered: {email}")
+        return jsonify({
+            'message': 'User registered successfully. Please check your email for verification.',
+            'user_id': user_id
+        }), 201
+        
+    except Exception as e:
+        logger.error(f"Registration error: {e}")
+        return jsonify({'error': 'Registration failed. Please try again.'}), 500
+
+# Enhanced login endpoint with security measures
+@application.route('/api/auth/login', methods=['POST'])
+@conditional_rate_limit("10 per minute")
+def login_user():
+    """Enhanced user login with security measures"""
+    try:
+        # Validate request
+        if not request.is_json:
+            return jsonify({'error': 'Request must contain valid JSON'}), 400
+        
+        data = request.get_json()
+        
+        # Validate required fields
+        if 'email' not in data or 'password' not in data:
+            return jsonify({'error': 'Email and password are required'}), 400
+        
+        # Sanitize email
+        email = sanitize_string(data['email'].lower().strip())
+        if not validate_email(email):
+            return jsonify({'error': 'Invalid email format'}), 400
+        
+        # Find user
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            # Use same error message to prevent user enumeration
+            return jsonify({'error': 'Invalid email or password'}), 401
+        
+        # Verify password
+        if not verify_password(data['password'], user.password_hash):
+            logger.warning(f"Failed login attempt for email: {email}")
+            return jsonify({'error': 'Invalid email or password'}), 401
+        
+        # Check if user is verified
+        if not user.is_verified:
+            return jsonify({'error': 'Please verify your email before logging in'}), 401
+        
+        # Update last login
+        user.last_login = datetime.utcnow()
+        db.session.commit()
+        
+        # Generate JWT token
+        token = create_jwt_token(user.id, None, 'user')
+        
+        logger.info(f"Successful login: {email}")
+        return jsonify({
+            'message': 'Login successful',
+            'token': token,
+            'user': {
+                'id': user.id,
+                'email': user.email,
+                'name': user.name
+            }
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Login error: {e}")
+        return jsonify({'error': 'Login failed. Please try again.'}), 500
+
+# Enhanced team creation with validation
+@application.route('/api/teams', methods=['POST'])
+@require_authentication
+def create_team():
+    """Enhanced team creation with comprehensive validation"""
+    try:
+        # Validate request
+        if not request.is_json:
+            return jsonify({'error': 'Request must contain valid JSON'}), 400
+        
+        data = request.get_json()
+        
+        # Validate required fields
+        if 'name' not in data:
+            return jsonify({'error': 'Team name is required'}), 400
+        
+        # Sanitize and validate team name
+        team_name = sanitize_string(data['name'], 120)
+        if len(team_name) < 2:
+            return jsonify({'error': 'Team name must be at least 2 characters long'}), 400
+        
+        # Generate unique team code
+        team_code = generate_team_code()
+        while Team.query.filter_by(employee_code=team_code).first():
+            team_code = generate_team_code()
+        
+        # Create team
+        team_id = generate_id('team')
+        new_team = Team(
+            id=team_id,
+            name=team_name,
+            employee_code=team_code
+        )
+        
+        db.session.add(new_team)
+        db.session.commit()
+        
+        # Add user as manager
+        membership = Membership(
+            team_id=team_id,
+            user_id=request.user_id,
+            user_name=request.user_name,
+            role='manager'
+        )
+        
+        db.session.add(membership)
+        db.session.commit()
+        
+        logger.info(f"Team created: {team_name} by user {request.user_id}")
+        return jsonify({
+            'message': 'Team created successfully',
+            'team': {
+                'id': team_id,
+                'name': team_name,
+                'employee_code': team_code
+            }
+        }), 201
+        
+    except Exception as e:
+        logger.error(f"Team creation error: {e}")
+        return jsonify({'error': 'Failed to create team. Please try again.'}), 500
+
+# Enhanced activity submission with validation
+@application.route('/api/teams/<team_id>/activity', methods=['POST'])
+@conditional_rate_limit("120 per minute")
+def submit_activity(team_id):
+    """Enhanced activity submission with comprehensive validation"""
+    try:
+        # Validate team ID
+        team_id = validate_team_id(team_id)
+        
+        # Validate request
+        if not request.is_json:
+            return jsonify({'error': 'Request must contain valid JSON'}), 400
+        
+        data = request.get_json()
+        
+        # Validate required fields
+        if 'user_id' not in data:
+            return jsonify({'error': 'User ID is required'}), 400
+        
+        user_id = validate_user_id(data['user_id'])
+        
+        # Validate optional fields
+        active_app = sanitize_string(data.get('active_app', ''), 255)
+        window_title = sanitize_string(data.get('window_title', ''), 1000)
+        
+        # Validate numeric fields
+        try:
+            productive_hours = float(data.get('productive_hours', 0))
+            unproductive_hours = float(data.get('unproductive_hours', 0))
+            idle_time = float(data.get('idle_time', 0))
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid numeric values for hours'}), 400
+        
+        # Validate time ranges
+        if productive_hours < 0 or unproductive_hours < 0 or idle_time < 0:
+            return jsonify({'error': 'Hours cannot be negative'}), 400
+        
+        if productive_hours + unproductive_hours + idle_time > 24:
+            return jsonify({'error': 'Total hours cannot exceed 24'}), 400
+        
+        # Create activity record
+        activity = Activity(
+            user_id=user_id,
+            team_id=team_id,
+            date=datetime.utcnow().date(),
+            active_app=active_app,
+            window_title=window_title,
+            productive_hours=productive_hours,
+            unproductive_hours=unproductive_hours,
+            idle_time=idle_time,
+            last_active=datetime.utcnow()
+        )
+        
+        db.session.add(activity)
+        db.session.commit()
+        
+        logger.info(f"Activity submitted for user {user_id} in team {team_id}")
+        return jsonify({'message': 'Activity submitted successfully'}), 201
+        
+    except InputValidationError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        logger.error(f"Activity submission error: {e}")
+        return jsonify({'error': 'Failed to submit activity. Please try again.'}), 500
+
+# ... rest of the existing code with similar security enhancements ...

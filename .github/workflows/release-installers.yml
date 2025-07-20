@@ -61,6 +61,9 @@ jobs:
         env:
           TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_PRIVATE_KEY_PASSWORD }}
+          # Additional environment variables for better build stability
+          RUST_BACKTRACE: 1
+          CARGO_INCREMENTAL: 0
 
       - name: Upload macOS artifacts
         if: matrix.platform == 'macos-latest'
@@ -136,6 +139,9 @@ jobs:
         env:
           TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_PRIVATE_KEY_PASSWORD }}
+          # Additional environment variables for better build stability
+          RUST_BACKTRACE: 1
+          CARGO_INCREMENTAL: 0
 
       - name: Upload macOS artifacts
         if: matrix.platform == 'macos-latest'

@@ -4,7 +4,6 @@
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct AppState {
     is_authenticated: bool,
@@ -24,7 +23,7 @@ impl Default for AppState {
 
 // Tauri commands
 #[tauri::command]
-async fn authenticate_manager(
+fn authenticate_manager(
     state: tauri::State<'_, Arc<Mutex<AppState>>>,
     user_name: String,
     organization: String,
@@ -38,7 +37,7 @@ async fn authenticate_manager(
 }
 
 #[tauri::command]
-async fn logout_manager(state: tauri::State<'_, Arc<Mutex<AppState>>>) -> Result<String, String> {
+fn logout_manager(state: tauri::State<'_, Arc<Mutex<AppState>>>) -> Result<String, String> {
     let mut app_state = state.lock().map_err(|e| e.to_string())?;
     app_state.is_authenticated = false;
     app_state.user_name = None;
@@ -48,22 +47,22 @@ async fn logout_manager(state: tauri::State<'_, Arc<Mutex<AppState>>>) -> Result
 }
 
 #[tauri::command]
-async fn get_app_state(state: tauri::State<'_, Arc<Mutex<AppState>>>) -> Result<AppState, String> {
+fn get_app_state(state: tauri::State<'_, Arc<Mutex<AppState>>>) -> Result<AppState, String> {
     let app_state = state.lock().map_err(|e| e.to_string())?;
     Ok(app_state.clone())
 }
 
 #[tauri::command]
-async fn fetch_team_data() -> Result<String, String> {
+fn fetch_team_data() -> Result<String, String> {
     // Simulate fetching team data from a server
-    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    std::thread::sleep(std::time::Duration::from_millis(500));
     Ok("Team data fetched successfully".to_string())
 }
 
 #[tauri::command]
-async fn check_for_updates() -> Result<String, String> {
+fn check_for_updates() -> Result<String, String> {
     // Simulate checking for updates
-    tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+    std::thread::sleep(std::time::Duration::from_millis(300));
     Ok("No updates available".to_string())
 }
 

@@ -1,75 +1,196 @@
-import { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { AlertTriangle, RefreshCw, Home, Mail } from 'lucide-react';
+import { Button } from './ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 
 interface Props {
   children: ReactNode;
+  fallback?: ReactNode;
 }
 
 interface State {
   hasError: boolean;
-  error?: Error;
+  error: Error | null;
+  errorInfo: ErrorInfo | null;
+  errorId: string;
 }
 
-class ErrorBoundary extends Component<Props, State> {
-  public state: State = {
-    hasError: false
+export default class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null,
+      errorInfo: null,
+      errorId: ''
+    };
+  }
+
+  static getDerivedStateFromError(error: Error): Partial<State> {
+    // Generate a unique error ID for tracking
+    const errorId = `error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    return {
+      hasError: true,
+      error,
+      errorId
+    };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // Log error to console for debugging
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    
+    // Update state with error info
+    this.setState({
+      errorInfo,
+      errorId: this.state.errorId || `error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    });
+
+    // In a production app, you would send this to an error reporting service
+    // this.reportError(error, errorInfo);
+  }
+
+  private reportError = (error: Error, errorInfo: ErrorInfo) => {
+    // Example error reporting - replace with your actual error reporting service
+    const errorReport = {
+      errorId: this.state.errorId,
+      message: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack,
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      url: window.location.href
+    };
+
+    // Send to error reporting service (e.g., Sentry, LogRocket, etc.)
+    console.log('Error report:', errorReport);
+    
+    // Example: fetch('/api/errors', {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify(errorReport)
+    // });
   };
-
-  public static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
-  }
-
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Error boundary caught an error:', error, errorInfo);
-  }
 
   private handleRetry = () => {
-    this.setState({ hasError: false, error: undefined });
+    this.setState({
+      hasError: false,
+      error: null,
+      errorInfo: null,
+      errorId: ''
+    });
   };
 
-  public render() {
+  private handleGoHome = () => {
+    window.location.href = '/';
+  };
+
+  private handleReportError = () => {
+    const { error, errorInfo, errorId } = this.state;
+    
+    if (!error) return;
+
+    const errorDetails = `
+Error ID: ${errorId}
+Message: ${error.message}
+Stack: ${error.stack}
+Component Stack: ${errorInfo?.componentStack}
+URL: ${window.location.href}
+User Agent: ${navigator.userAgent}
+Timestamp: ${new Date().toISOString()}
+    `.trim();
+
+    // Copy to clipboard
+    navigator.clipboard.writeText(errorDetails).then(() => {
+      alert('Error details copied to clipboard. Please send this to support.');
+    }).catch(() => {
+      // Fallback: open email client
+      const subject = encodeURIComponent(`ProductivityFlow Error Report - ${errorId}`);
+      const body = encodeURIComponent(errorDetails);
+      window.open(`mailto:support@productivityflow.com?subject=${subject}&body=${body}`);
+    });
+  };
+
+  render() {
     if (this.state.hasError) {
+      // Custom fallback UI
+      if (this.props.fallback) {
+        return this.props.fallback;
+      }
+
+      // Default error UI
       return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full mb-4">
-              <AlertCircle className="w-6 h-6 text-red-600" />
-            </div>
+          <Card className="max-w-md w-full">
+            <CardHeader className="text-center">
+              <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+              </div>
+              <CardTitle className="text-xl font-semibold text-gray-900">
+                Something went wrong
+              </CardTitle>
+              <p className="text-gray-600 mt-2">
+                We're sorry, but something unexpected happened. Our team has been notified.
+              </p>
+            </CardHeader>
             
-            <h1 className="text-xl font-semibold text-gray-900 text-center mb-2">
-              Something went wrong
-            </h1>
-            
-            <p className="text-gray-600 text-center mb-4">
-              The application encountered an unexpected error. Please try refreshing the page.
-            </p>
-            
-            {this.state.error && (
-              <details className="mb-4 text-sm text-gray-500 bg-gray-50 rounded p-3">
-                <summary className="cursor-pointer font-medium">Error details</summary>
-                <pre className="mt-2 whitespace-pre-wrap">
-                  {this.state.error.toString()}
-                </pre>
-              </details>
-            )}
-            
-            <div className="flex space-x-3">
-              <button
-                onClick={this.handleRetry}
-                className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Try Again
-              </button>
-              
-              <button
-                onClick={() => window.location.reload()}
-                className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Refresh Page
-              </button>
-            </div>
-          </div>
+            <CardContent className="space-y-4">
+              {/* Error ID for tracking */}
+              <div className="bg-gray-100 p-3 rounded-lg">
+                <p className="text-sm text-gray-600">
+                  Error ID: <span className="font-mono text-xs">{this.state.errorId}</span>
+                </p>
+              </div>
+
+              {/* Action buttons */}
+              <div className="space-y-3">
+                <Button 
+                  onClick={this.handleRetry}
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Try Again
+                </Button>
+                
+                <Button 
+                  onClick={this.handleGoHome}
+                  variant="outline"
+                  className="w-full"
+                >
+                  <Home className="w-4 h-4 mr-2" />
+                  Go to Home
+                </Button>
+                
+                <Button 
+                  onClick={this.handleReportError}
+                  variant="outline"
+                  className="w-full"
+                >
+                  <Mail className="w-4 h-4 mr-2" />
+                  Report Error
+                </Button>
+              </div>
+
+              {/* Development error details */}
+              {process.env.NODE_ENV === 'development' && this.state.error && (
+                <details className="mt-4">
+                  <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800">
+                    Error Details (Development)
+                  </summary>
+                  <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <pre className="text-xs text-red-800 overflow-auto max-h-32">
+                      {this.state.error.message}
+                      {'\n\n'}
+                      {this.state.error.stack}
+                      {'\n\n'}
+                      {this.state.errorInfo?.componentStack}
+                    </pre>
+                  </div>
+                </details>
+              )}
+            </CardContent>
+          </Card>
         </div>
       );
     }
@@ -78,4 +199,94 @@ class ErrorBoundary extends Component<Props, State> {
   }
 }
 
-export default ErrorBoundary;
+// Higher-order component for wrapping components with error boundary
+export function withErrorBoundary<P extends object>(
+  Component: React.ComponentType<P>,
+  fallback?: ReactNode
+) {
+  return function WithErrorBoundary(props: P) {
+    return (
+      <ErrorBoundary fallback={fallback}>
+        <Component {...props} />
+      </ErrorBoundary>
+    );
+  };
+}
+
+// Hook for functional components to handle errors
+export function useErrorHandler() {
+  const [error, setError] = React.useState<Error | null>(null);
+
+  const handleError = React.useCallback((error: Error) => {
+    console.error('Error caught by useErrorHandler:', error);
+    setError(error);
+  }, []);
+
+  const clearError = React.useCallback(() => {
+    setError(null);
+  }, []);
+
+  return { error, handleError, clearError };
+}
+
+// Network error component
+export function NetworkErrorFallback() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <Card className="max-w-md w-full">
+        <CardHeader className="text-center">
+          <div className="mx-auto w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
+            <AlertTriangle className="w-6 h-6 text-yellow-600" />
+          </div>
+          <CardTitle className="text-xl font-semibold text-gray-900">
+            Connection Lost
+          </CardTitle>
+          <p className="text-gray-600 mt-2">
+            Please check your internet connection and try again.
+          </p>
+        </CardHeader>
+        
+        <CardContent>
+          <Button 
+            onClick={() => window.location.reload()}
+            className="w-full bg-blue-600 hover:bg-blue-700"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Retry Connection
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Loading error component
+export function LoadingErrorFallback() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <Card className="max-w-md w-full">
+        <CardHeader className="text-center">
+          <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+            <AlertTriangle className="w-6 h-6 text-blue-600" />
+          </div>
+          <CardTitle className="text-xl font-semibold text-gray-900">
+            Loading Failed
+          </CardTitle>
+          <p className="text-gray-600 mt-2">
+            Unable to load the requested content. Please try again.
+          </p>
+        </CardHeader>
+        
+        <CardContent>
+          <Button 
+            onClick={() => window.location.reload()}
+            className="w-full bg-blue-600 hover:bg-blue-700"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Reload Page
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

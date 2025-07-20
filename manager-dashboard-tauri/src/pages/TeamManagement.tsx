@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
-import { Users, Crown, Copy, UserPlus, TrendingUp, TrendingDown, Plus } from 'lucide-react';
+import { Users, Crown, Copy, UserPlus, TrendingUp, TrendingDown, Plus, Loader2, AlertCircle } from 'lucide-react';
 import EmployeeSummaryModal from '../components/EmployeeSummaryModal';
 
 // Updated to use the correct backend URL
@@ -30,6 +30,10 @@ export default function TeamManagementPage() {
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [newTeamName, setNewTeamName] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [creatingTeam, setCreatingTeam] = useState(false);
 
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -45,12 +49,25 @@ export default function TeamManagementPage() {
   }, [selectedTeam]);
 
   const loadTeams = async () => {
+    setLoading(true);
+    setError(null);
     
     try {
-      const response = await fetch(`${API_URL}/api/teams/public`);
+      const response = await fetch(`${API_URL}/api/teams/public`, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        if (response.status === 401) {
+          throw new Error("Authentication required. Please log in again.");
+        } else if (response.status >= 500) {
+          throw new Error("Server error. Please try again later.");
+        } else {
+          throw new Error(`Failed to fetch teams (${response.status})`);
+        }
       }
       
       const data = await response.json();
@@ -59,8 +76,7 @@ export default function TeamManagementPage() {
       // Handle both error responses and success responses
       if (data.error) {
         console.error("API error:", data.error);
-        setTeams([]);
-        return;
+        throw new Error(data.error);
       }
       
       const teams = data.teams || [];
@@ -82,29 +98,51 @@ export default function TeamManagementPage() {
       }
     } catch (error) {
       console.error("Failed to load teams:", error);
+      setError(error instanceof Error ? error.message : "Failed to load teams");
       setTeams([]); // Set empty array to prevent crashes
     } finally {
-      
+      setLoading(false);
     }
   };
 
   const loadTeamMembers = async (teamId: string) => {
+    setLoadingMembers(true);
     try {
-      const response = await fetch(`${API_URL}/api/teams/${teamId}/members`);
+      const response = await fetch(`${API_URL}/api/teams/${teamId}/members`, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to load team members (${response.status})`);
+      }
+      
       const data = await response.json();
       setTeamMembers(data.members || []);
     } catch (error) {
       console.error("Failed to load team members:", error);
+      setError(error instanceof Error ? error.message : "Failed to load team members");
       setTeamMembers([]);
+    } finally {
+      setLoadingMembers(false);
     }
   };
 
   const handleCreateTeam = async () => {
     if (!newTeamName.trim()) return;
+    
+    setCreatingTeam(true);
+    setError(null);
+    
     try {
       const response = await fetch(`${API_URL}/api/teams`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
           body: JSON.stringify({ 
             name: newTeamName.trim(),
             user_name: "Manager", // Default manager name, can be made configurable
@@ -113,7 +151,13 @@ export default function TeamManagementPage() {
       });
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        if (response.status === 400) {
+          throw new Error("Invalid team name. Please try again.");
+        } else if (response.status >= 500) {
+          throw new Error("Server error. Please try again later.");
+        } else {
+          throw new Error(`Failed to create team (${response.status})`);
+        }
       }
       
       const data = await response.json();
@@ -139,7 +183,9 @@ export default function TeamManagementPage() {
       alert(`Team "${newTeam.name}" created successfully! Team code: ${newTeam.code}`);
     } catch (error) {
       console.error("Failed to create team:", error);
-      alert(`Failed to create team: ${error instanceof Error ? error.message : String(error)}`);
+      setError(error instanceof Error ? error.message : "Failed to create team");
+    } finally {
+      setCreatingTeam(false);
     }
   };
 
@@ -154,13 +200,27 @@ export default function TeamManagementPage() {
   };
 
   const copyTeamCode = (code: string) => {
-    navigator.clipboard.writeText(code).then(() => alert("Team code copied!"));
+    navigator.clipboard.writeText(code).then(() => {
+      // Show a more user-friendly notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-md shadow-lg z-50';
+      notification.textContent = 'Team code copied to clipboard!';
+      document.body.appendChild(notification);
+      setTimeout(() => document.body.removeChild(notification), 2000);
+    }).catch(() => {
+      alert("Failed to copy team code. Please copy it manually.");
+    });
+  };
+
+  const handleRetry = () => {
+    loadTeams();
   };
 
   return (
     <>
       <div className="space-y-6">
         <h1 className="text-3xl font-bold tracking-tight">Team Management</h1>
+        
         <Card>
             <CardHeader><CardTitle>Create a New Team</CardTitle></CardHeader>
             <CardContent>
@@ -168,14 +228,35 @@ export default function TeamManagementPage() {
                     <Input 
                       value={newTeamName} 
                       onChange={(e) => setNewTeamName(e.target.value)} 
-                      placeholder="E.g., Q3 Engineering Squad" 
+                      placeholder="E.g., Q3 Engineering Squad"
+                      disabled={creatingTeam}
                     />
-                    <Button onClick={handleCreateTeam}>
-                      <Plus className="h-4 w-4 mr-2" />Create Team
+                    <Button onClick={handleCreateTeam} disabled={creatingTeam || !newTeamName.trim()}>
+                      {creatingTeam ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Plus className="h-4 w-4 mr-2" />
+                      )}
+                      {creatingTeam ? 'Creating...' : 'Create Team'}
                     </Button>
                 </div>
             </CardContent>
         </Card>
+
+        {/* Error Display */}
+        {error && (
+          <Card className="border-red-200">
+            <CardContent className="flex items-center justify-center py-6">
+              <div className="text-center">
+                <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-2" />
+                <p className="text-red-600 mb-2">{error}</p>
+                <Button onClick={handleRetry} variant="outline" size="sm">
+                  Try Again
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="md:col-span-1">
@@ -186,23 +267,35 @@ export default function TeamManagementPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {teams.map(team => (
-                  <button 
-                    key={team.id} 
-                    onClick={() => handleTeamSelect(team)} 
-                    className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                      selectedTeam?.id === team.id 
-                        ? 'bg-indigo-100 border-indigo-300' 
-                        : 'hover:bg-gray-100'
-                    }`}
-                  >
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold text-gray-800">{team.name}</span>
-                      <Badge>Active</Badge>
-                    </div>
-                    <p className="text-sm text-gray-500">{team.memberCount} members</p>
-                  </button>
-                ))}
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                  </div>
+                ) : teams.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Users className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-500 text-sm">No teams found</p>
+                    <p className="text-gray-400 text-xs">Create your first team above</p>
+                  </div>
+                ) : (
+                  teams.map(team => (
+                    <button 
+                      key={team.id} 
+                      onClick={() => handleTeamSelect(team)} 
+                      className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                        selectedTeam?.id === team.id 
+                          ? 'bg-indigo-100 border-indigo-300' 
+                          : 'hover:bg-gray-100'
+                      }`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-gray-800">{team.name}</span>
+                        <Badge>Active</Badge>
+                      </div>
+                      <p className="text-sm text-gray-500">{team.memberCount} members</p>
+                    </button>
+                  ))
+                )}
               </CardContent>
             </Card>
           </div>
@@ -235,41 +328,60 @@ export default function TeamManagementPage() {
                       </Button>
                     </div>
                     <div className="space-y-3">
-                      {teamMembers.map(member => (
-                        <div 
-                          key={member.userId} 
-                          onClick={() => handleMemberClick(member)} 
-                          className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
-                        >
-                          <div className="flex items-center space-x-3">
-                            <div className="w-9 h-9 bg-gray-200 rounded-full flex items-center justify-center">
-                              <span className="text-sm font-medium text-gray-600">
-                                {member.name.substring(0, 2).toUpperCase()}
-                              </span>
-                            </div>
-                            <div>
-                              <p className="font-semibold text-gray-800">{member.name}</p>
-                              <p className="text-sm text-gray-500">{member.role}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-4">
-                            <div className="flex items-center text-sm text-green-600 font-medium">
-                              <TrendingUp className="h-4 w-4 mr-1"/>
-                              {member.productiveHours || 0}h
-                            </div>
-                            <div className="flex items-center text-sm text-orange-600 font-medium">
-                              <TrendingDown className="h-4 w-4 mr-1"/>
-                              {member.unproductiveHours || 0}h
-                            </div>
-                          </div>
+                      {loadingMembers ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
                         </div>
-                      ))}
+                      ) : teamMembers.length === 0 ? (
+                        <div className="text-center py-8">
+                          <Users className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-gray-500">No members have joined yet</p>
+                          <p className="text-gray-400 text-sm">Share the team code above to invite members</p>
+                        </div>
+                      ) : (
+                        teamMembers.map(member => (
+                          <div 
+                            key={member.userId} 
+                            onClick={() => handleMemberClick(member)} 
+                            className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                          >
+                            <div className="flex items-center space-x-3">
+                              <div className="w-9 h-9 bg-gray-200 rounded-full flex items-center justify-center">
+                                <span className="text-sm font-medium text-gray-600">
+                                  {member.name.substring(0, 2).toUpperCase()}
+                                </span>
+                              </div>
+                              <div>
+                                <p className="font-semibold text-gray-800">{member.name}</p>
+                                <p className="text-sm text-gray-500">{member.role}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-4">
+                              <div className="flex items-center text-sm text-green-600 font-medium">
+                                <TrendingUp className="h-4 w-4 mr-1"/>
+                                {member.productiveHours || 0}h
+                              </div>
+                              <div className="flex items-center text-sm text-orange-600 font-medium">
+                                <TrendingDown className="h-4 w-4 mr-1"/>
+                                {member.unproductiveHours || 0}h
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 </CardContent>
               </Card>
             ) : (
-              <p>Create a team to get started.</p>
+              <Card>
+                <CardContent className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500">Select a team to view details</p>
+                  </div>
+                </CardContent>
+              </Card>
             )}
           </div>
         </div>
