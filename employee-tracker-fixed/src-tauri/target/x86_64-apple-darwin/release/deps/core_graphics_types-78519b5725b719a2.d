@@ -1,0 +1,9 @@
+/Users/jayreddy/Desktop/ProductivityFlow/ProductivityFlow/manager-dashboard-tauri/src-tauri/target/x86_64-apple-darwin/release/deps/core_graphics_types-78519b5725b719a2.d: /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/core-graphics-types-0.1.3/src/lib.rs /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/core-graphics-types-0.1.3/src/base.rs /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/core-graphics-types-0.1.3/src/geometry.rs
+
+/Users/jayreddy/Desktop/ProductivityFlow/ProductivityFlow/manager-dashboard-tauri/src-tauri/target/x86_64-apple-darwin/release/deps/libcore_graphics_types-78519b5725b719a2.rlib: /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/core-graphics-types-0.1.3/src/lib.rs /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/core-graphics-types-0.1.3/src/base.rs /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/core-graphics-types-0.1.3/src/geometry.rs
+
+/Users/jayreddy/Desktop/ProductivityFlow/ProductivityFlow/manager-dashboard-tauri/src-tauri/target/x86_64-apple-darwin/release/deps/libcore_graphics_types-78519b5725b719a2.rmeta: /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/core-graphics-types-0.1.3/src/lib.rs /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/core-graphics-types-0.1.3/src/base.rs /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/core-graphics-types-0.1.3/src/geometry.rs
+
+/Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/core-graphics-types-0.1.3/src/lib.rs:
+/Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/core-graphics-types-0.1.3/src/base.rs:
+/Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/core-graphics-types-0.1.3/src/geometry.rs:

@@ -1,0 +1,8 @@
+/Users/jayreddy/Desktop/ProductivityFlow/employee-tracker-fixed/src-tauri/target/release/deps/darling-f3ee499279fad4c9.d: /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/darling-0.20.11/src/lib.rs /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/darling-0.20.11/src/macros_public.rs
+
+/Users/jayreddy/Desktop/ProductivityFlow/employee-tracker-fixed/src-tauri/target/release/deps/libdarling-f3ee499279fad4c9.rlib: /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/darling-0.20.11/src/lib.rs /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/darling-0.20.11/src/macros_public.rs
+
+/Users/jayreddy/Desktop/ProductivityFlow/employee-tracker-fixed/src-tauri/target/release/deps/libdarling-f3ee499279fad4c9.rmeta: /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/darling-0.20.11/src/lib.rs /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/darling-0.20.11/src/macros_public.rs
+
+/Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/darling-0.20.11/src/lib.rs:
+/Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/darling-0.20.11/src/macros_public.rs:

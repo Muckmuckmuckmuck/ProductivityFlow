@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Network Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        button { padding: 10px 15px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 3px; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>Network Connectivity Test</h1>
+    
+    <div class="test-section">
+        <h3>1. Test Basic HTTP Request</h3>
+        <button onclick="testBasicHttp()">Test HTTPBin</button>
+        <div id="http-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>2. Test Our Backend Health</h3>
+        <button onclick="testBackendHealth()">Test Backend Health</button>
+        <div id="health-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>3. Test Backend with CORS</h3>
+        <button onclick="testBackendCors()">Test Backend CORS</button>
+        <div id="cors-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>4. Test Google Cloud Run (Different Service)</h3>
+        <button onclick="testGoogleCloudRun()">Test Google Cloud Run</button>
+        <div id="gcp-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>5. Test with Different Headers</h3>
+        <button onclick="testWithHeaders()">Test with Headers</button>
+        <div id="headers-result" class="result"></div>
+    </div>
+
+    <script>
+        async function testBasicHttp() {
+            const resultDiv = document.getElementById('http-result');
+            resultDiv.textContent = 'Testing...';
+            
+            try {
+                const response = await fetch('https://httpbin.org/get');
+                const data = await response.json();
+                resultDiv.textContent = `✅ Success! Status: ${response.status}\nResponse: ${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                resultDiv.textContent = `❌ Error: ${error.message}`;
+            }
+        }
+        
+        async function testBackendHealth() {
+            const resultDiv = document.getElementById('health-result');
+            resultDiv.textContent = 'Testing...';
+            
+            try {
+                const response = await fetch('https://productivityflow-backend-496367590729.us-central1.run.app/health');
+                const data = await response.json();
+                resultDiv.textContent = `✅ Success! Status: ${response.status}\nResponse: ${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                resultDiv.textContent = `❌ Error: ${error.message}`;
+            }
+        }
+        
+        async function testBackendCors() {
+            const resultDiv = document.getElementById('cors-result');
+            resultDiv.textContent = 'Testing...';
+            
+            try {
+                const response = await fetch('https://productivityflow-backend-496367590729.us-central1.run.app/api/teams/public', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                resultDiv.textContent = `✅ Success! Status: ${response.status}\nResponse: ${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                resultDiv.textContent = `❌ Error: ${error.message}`;
+            }
+        }
+        
+        async function testGoogleCloudRun() {
+            const resultDiv = document.getElementById('gcp-result');
+            resultDiv.textContent = 'Testing...';
+            
+            try {
+                // Test a different Google Cloud Run service
+                const response = await fetch('https://cloud-run-demo-1234567890-uc.a.run.app/');
+                const text = await response.text();
+                resultDiv.textContent = `✅ Success! Status: ${response.status}\nResponse: ${text.substring(0, 200)}...`;
+            } catch (error) {
+                resultDiv.textContent = `❌ Error: ${error.message}`;
+            }
+        }
+        
+        async function testWithHeaders() {
+            const resultDiv = document.getElementById('headers-result');
+            resultDiv.textContent = 'Testing...';
+            
+            try {
+                const response = await fetch('https://productivityflow-backend-496367590729.us-central1.run.app/health', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+                        'Origin': 'https://example.com'
+                    }
+                });
+                const data = await response.json();
+                resultDiv.textContent = `✅ Success! Status: ${response.status}\nResponse: ${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                resultDiv.textContent = `❌ Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html> 

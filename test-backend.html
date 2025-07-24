@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Backend API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        button { padding: 10px 15px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 3px; white-space: pre-wrap; }
+        input { padding: 8px; margin: 5px; border: 1px solid #ccc; border-radius: 3px; width: 200px; }
+    </style>
+</head>
+<body>
+    <h1>ProductivityFlow Backend API Test</h1>
+    
+    <div class="test-section">
+        <h3>1. Health Check</h3>
+        <button onclick="testHealth()">Test Health Endpoint</button>
+        <div id="health-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>2. Get Public Teams</h3>
+        <button onclick="testGetTeams()">Get Teams</button>
+        <div id="teams-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>3. Create Team</h3>
+        <input type="text" id="teamName" placeholder="Team Name" value="Test Team from Browser">
+        <button onclick="testCreateTeam()">Create Team</button>
+        <div id="create-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>4. Join Team</h3>
+        <input type="text" id="teamCode" placeholder="Team Code" value="NDEJW9">
+        <input type="text" id="employeeName" placeholder="Employee Name" value="Browser Test User">
+        <button onclick="testJoinTeam()">Join Team</button>
+        <div id="join-result" class="result"></div>
+    </div>
+
+    <script>
+        const API_URL = "https://productivityflow-backend-496367590729.us-central1.run.app";
+        
+        async function testHealth() {
+            const resultDiv = document.getElementById('health-result');
+            resultDiv.textContent = 'Testing...';
+            
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                const data = await response.json();
+                resultDiv.textContent = `Status: ${response.status}\nResponse: ${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                resultDiv.textContent = `Error: ${error.message}`;
+            }
+        }
+        
+        async function testGetTeams() {
+            const resultDiv = document.getElementById('teams-result');
+            resultDiv.textContent = 'Testing...';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/teams/public`);
+                const data = await response.json();
+                resultDiv.textContent = `Status: ${response.status}\nResponse: ${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                resultDiv.textContent = `Error: ${error.message}`;
+            }
+        }
+        
+        async function testCreateTeam() {
+            const resultDiv = document.getElementById('create-result');
+            const teamName = document.getElementById('teamName').value;
+            resultDiv.textContent = 'Testing...';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/teams`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: teamName,
+                        user_name: "Browser Manager"
+                    })
+                });
+                
+                const data = await response.json();
+                resultDiv.textContent = `Status: ${response.status}\nResponse: ${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                resultDiv.textContent = `Error: ${error.message}`;
+            }
+        }
+        
+        async function testJoinTeam() {
+            const resultDiv = document.getElementById('join-result');
+            const teamCode = document.getElementById('teamCode').value;
+            const employeeName = document.getElementById('employeeName').value;
+            resultDiv.textContent = 'Testing...';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/teams/join`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        team_code: teamCode,
+                        employee_name: employeeName
+                    })
+                });
+                
+                const data = await response.json();
+                resultDiv.textContent = `Status: ${response.status}\nResponse: ${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                resultDiv.textContent = `Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html> 

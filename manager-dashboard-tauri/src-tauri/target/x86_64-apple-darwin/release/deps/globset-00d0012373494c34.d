@@ -1,0 +1,10 @@
+/Users/jayreddy/Desktop/ProductivityFlow/ProductivityFlow/manager-dashboard-tauri/src-tauri/target/x86_64-apple-darwin/release/deps/globset-00d0012373494c34.d: /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/globset-0.4.16/src/lib.rs /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/globset-0.4.16/src/fnv.rs /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/globset-0.4.16/src/glob.rs /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/globset-0.4.16/src/pathutil.rs
+
+/Users/jayreddy/Desktop/ProductivityFlow/ProductivityFlow/manager-dashboard-tauri/src-tauri/target/x86_64-apple-darwin/release/deps/libglobset-00d0012373494c34.rlib: /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/globset-0.4.16/src/lib.rs /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/globset-0.4.16/src/fnv.rs /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/globset-0.4.16/src/glob.rs /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/globset-0.4.16/src/pathutil.rs
+
+/Users/jayreddy/Desktop/ProductivityFlow/ProductivityFlow/manager-dashboard-tauri/src-tauri/target/x86_64-apple-darwin/release/deps/libglobset-00d0012373494c34.rmeta: /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/globset-0.4.16/src/lib.rs /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/globset-0.4.16/src/fnv.rs /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/globset-0.4.16/src/glob.rs /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/globset-0.4.16/src/pathutil.rs
+
+/Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/globset-0.4.16/src/lib.rs:
+/Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/globset-0.4.16/src/fnv.rs:
+/Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/globset-0.4.16/src/glob.rs:
+/Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/globset-0.4.16/src/pathutil.rs:

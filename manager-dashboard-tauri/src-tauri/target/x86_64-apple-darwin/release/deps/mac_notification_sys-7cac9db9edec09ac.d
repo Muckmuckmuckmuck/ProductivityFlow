@@ -1,0 +1,9 @@
+/Users/jayreddy/Desktop/ProductivityFlow/ProductivityFlow/manager-dashboard-tauri/src-tauri/target/x86_64-apple-darwin/release/deps/mac_notification_sys-7cac9db9edec09ac.d: /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mac-notification-sys-0.6.6/src/lib.rs /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mac-notification-sys-0.6.6/src/error.rs /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mac-notification-sys-0.6.6/src/notification.rs
+
+/Users/jayreddy/Desktop/ProductivityFlow/ProductivityFlow/manager-dashboard-tauri/src-tauri/target/x86_64-apple-darwin/release/deps/libmac_notification_sys-7cac9db9edec09ac.rlib: /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mac-notification-sys-0.6.6/src/lib.rs /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mac-notification-sys-0.6.6/src/error.rs /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mac-notification-sys-0.6.6/src/notification.rs
+
+/Users/jayreddy/Desktop/ProductivityFlow/ProductivityFlow/manager-dashboard-tauri/src-tauri/target/x86_64-apple-darwin/release/deps/libmac_notification_sys-7cac9db9edec09ac.rmeta: /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mac-notification-sys-0.6.6/src/lib.rs /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mac-notification-sys-0.6.6/src/error.rs /Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mac-notification-sys-0.6.6/src/notification.rs
+
+/Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mac-notification-sys-0.6.6/src/lib.rs:
+/Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mac-notification-sys-0.6.6/src/error.rs:
+/Users/jayreddy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mac-notification-sys-0.6.6/src/notification.rs:

@@ -1,0 +1,44 @@
+[package]
+name = "employee-tracker-tauri"
+version = "0.1.0"
+description = "ProductivityFlow Employee Tracker"
+authors = ["ProductivityFlow"]
+license = ""
+repository = ""
+default-run = "employee-tracker-tauri"
+edition = "2021"
+rust-version = "1.60"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[build-dependencies]
+tauri-build = { version = "1.5", features = [] }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+tauri = { version = "1.5", features = [ "window-minimize", "window-close", "shell-open", "http-all", "window-hide", "window-unmaximize", "window-maximize", "notification-all", "window-unminimize", "window-start-dragging", "window-show", "system-tray", "updater"] }
+tokio = { version = "1.0", features = ["full"] }
+reqwest = { version = "0.11", features = ["json"] }
+bytes = "1.0"
+
+# Platform-specific dependencies for system monitoring
+[target.'cfg(target_os = "windows")'.dependencies]
+winapi = { version = "0.3", features = ["winuser", "processthreadsapi", "psapi"] }
+widestring = "1.0"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+cocoa = "0.25"
+core-graphics = "0.23"
+objc = "0.2"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+x11 = { version = "2.21", features = ["xlib", "xss"] }
+
+[features]
+# by default Tauri runs in production mode
+# when `tauri dev` runs it is executed with `cargo run --no-default-features` if `devPath` is a URL
+default = [ "custom-protocol" ]
+# this feature is used for production builds where `devPath` points to the filesystem
+# DO NOT remove this
+custom-protocol = [ "tauri/custom-protocol" ]

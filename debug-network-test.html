@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProductivityFlow Network Debug Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .loading { background-color: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .result { margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 ProductivityFlow Network Debug Test</h1>
+    <p>This will test all possible network connectivity issues that could cause "Load failed" in the desktop app.</p>
+
+    <div class="test-section">
+        <h2>1. Basic Connectivity Tests</h2>
+        <button onclick="testBasicConnectivity()">Test Basic Connectivity</button>
+        <div id="basic-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Backend Health Check</h2>
+        <button onclick="testBackendHealth()">Test Backend Health</button>
+        <div id="health-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Teams API Test</h2>
+        <button onclick="testTeamsAPI()">Test Teams API</button>
+        <div id="teams-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. CORS Preflight Test</h2>
+        <button onclick="testCORSPreflight()">Test CORS Preflight</button>
+        <div id="cors-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>5. Create Team Test</h2>
+        <button onclick="testCreateTeam()">Test Create Team</button>
+        <div id="create-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>6. Browser Environment Test</h2>
+        <button onclick="testBrowserEnvironment()">Test Browser Environment</button>
+        <div id="browser-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>7. Network Headers Test</h2>
+        <button onclick="testNetworkHeaders()">Test Network Headers</button>
+        <div id="headers-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>8. Full Diagnostic Test</h2>
+        <button onclick="runFullDiagnostic()">Run Full Diagnostic</button>
+        <div id="diagnostic-result" class="result"></div>
+    </div>
+
+    <script>
+        const API_URL = "https://productivityflow-backend-496367590729.us-central1.run.app";
+        
+        function logResult(elementId, message, isSuccess = true) {
+            const element = document.getElementById(elementId);
+            element.className = `result ${isSuccess ? 'success' : 'error'}`;
+            element.innerHTML = `<pre>${message}</pre>`;
+        }
+
+        function setLoading(elementId) {
+            const element = document.getElementById(elementId);
+            element.className = 'result loading';
+            element.innerHTML = '<pre>Testing...</pre>';
+        }
+
+        async function testBasicConnectivity() {
+            setLoading('basic-result');
+            try {
+                // Test 1: HTTPBin
+                const httpbinResponse = await fetch('https://httpbin.org/get');
+                const httpbinData = await httpbinResponse.json();
+                
+                // Test 2: Google Cloud Run (different service)
+                const gcpResponse = await fetch('https://cloud-run-demo-1234567890-uc.a.run.app/');
+                const gcpText = await gcpResponse.text();
+                
+                // Test 3: Our backend
+                const backendResponse = await fetch(`${API_URL}/health`);
+                const backendData = await backendResponse.json();
+                
+                const result = `✅ Basic Connectivity Tests PASSED
+
+1. HTTPBin: ✅ Status ${httpbinResponse.status}
+   Origin: ${httpbinData.origin}
+   User-Agent: ${httpbinData.headers['User-Agent']}
+
+2. Google Cloud Run: ✅ Status ${gcpResponse.status}
+   Response: ${gcpText.substring(0, 100)}...
+
+3. Our Backend: ✅ Status ${backendResponse.status}
+   Database: ${backendData.database}
+   Status: ${backendData.status}`;
+                
+                logResult('basic-result', result, true);
+            } catch (error) {
+                logResult('basic-result', `❌ Basic Connectivity Test FAILED\n\nError: ${error.message}\n\nStack: ${error.stack}`, false);
+            }
+        }
+
+        async function testBackendHealth() {
+            setLoading('health-result');
+            try {
+                const response = await fetch(`${API_URL}/health`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                const result = `✅ Backend Health Check PASSED
+
+Status: ${response.status}
+Database: ${data.database}
+Status: ${data.status}
+Timestamp: ${data.timestamp}
+
+Headers:
+${JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2)}`;
+                
+                logResult('health-result', result, true);
+            } catch (error) {
+                logResult('health-result', `❌ Backend Health Check FAILED\n\nError: ${error.message}\n\nStack: ${error.stack}`, false);
+            }
+        }
+
+        async function testTeamsAPI() {
+            setLoading('teams-result');
+            try {
+                const response = await fetch(`${API_URL}/api/teams/public`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                const result = `✅ Teams API Test PASSED
+
+Status: ${response.status}
+Teams Count: ${data.teams ? data.teams.length : 0}
+
+Response Data:
+${JSON.stringify(data, null, 2)}
+
+Headers:
+${JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2)}`;
+                
+                logResult('teams-result', result, true);
+            } catch (error) {
+                logResult('teams-result', `❌ Teams API Test FAILED\n\nError: ${error.message}\n\nStack: ${error.stack}`, false);
+            }
+        }
+
+        async function testCORSPreflight() {
+            setLoading('cors-result');
+            try {
+                const response = await fetch(`${API_URL}/api/teams/public`, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Origin': 'file://',
+                        'Access-Control-Request-Method': 'GET',
+                        'Access-Control-Request-Headers': 'Content-Type,Accept'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                const result = `✅ CORS Preflight Test PASSED
+
+Status: ${response.status}
+Access-Control-Allow-Origin: ${response.headers.get('Access-Control-Allow-Origin')}
+Access-Control-Allow-Methods: ${response.headers.get('Access-Control-Allow-Methods')}
+Access-Control-Allow-Headers: ${response.headers.get('Access-Control-Allow-Headers')}
+
+Response Data:
+${JSON.stringify(data, null, 2)}`;
+                
+                logResult('cors-result', result, true);
+            } catch (error) {
+                logResult('cors-result', `❌ CORS Preflight Test FAILED\n\nError: ${error.message}\n\nStack: ${error.stack}`, false);
+            }
+        }
+
+        async function testCreateTeam() {
+            setLoading('create-result');
+            try {
+                const teamName = `Debug Test Team ${Date.now()}`;
+                const response = await fetch(`${API_URL}/api/teams`, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: teamName,
+                        user_name: "Debug Test User",
+                        role: "manager"
+                    })
+                });
+                
+                const data = await response.json();
+                
+                const result = `✅ Create Team Test PASSED
+
+Status: ${response.status}
+Team Name: ${data.team.name}
+Team Code: ${data.team.employee_code}
+Team ID: ${data.team.id}
+
+Response Data:
+${JSON.stringify(data, null, 2)}`;
+                
+                logResult('create-result', result, true);
+            } catch (error) {
+                logResult('create-result', `❌ Create Team Test FAILED\n\nError: ${error.message}\n\nStack: ${error.stack}`, false);
+            }
+        }
+
+        function testBrowserEnvironment() {
+            const result = `🔍 Browser Environment Analysis
+
+User Agent: ${navigator.userAgent}
+Platform: ${navigator.platform}
+Language: ${navigator.language}
+Cookie Enabled: ${navigator.cookieEnabled}
+Online: ${navigator.onLine}
+
+Location Protocol: ${window.location.protocol}
+Location Host: ${window.location.host}
+Location Pathname: ${window.location.pathname}
+
+Fetch Available: ${typeof fetch !== 'undefined'}
+XMLHttpRequest Available: ${typeof XMLHttpRequest !== 'undefined'}
+
+Security Context:
+- Is Secure Context: ${window.isSecureContext}
+- Origin: ${window.location.origin}
+- Referrer: ${document.referrer}`;
+            
+            logResult('browser-result', result, true);
+        }
+
+        async function testNetworkHeaders() {
+            setLoading('headers-result');
+            try {
+                const response = await fetch(`${API_URL}/health`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'User-Agent': 'ProductivityFlow-Debug-Test/1.0',
+                        'Origin': 'file://',
+                        'X-Debug-Test': 'true'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                const result = `✅ Network Headers Test PASSED
+
+Status: ${response.status}
+Content-Type: ${response.headers.get('Content-Type')}
+Access-Control-Allow-Origin: ${response.headers.get('Access-Control-Allow-Origin')}
+Server: ${response.headers.get('Server')}
+
+All Headers:
+${JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2)}
+
+Response Data:
+${JSON.stringify(data, null, 2)}`;
+                
+                logResult('headers-result', result, true);
+            } catch (error) {
+                logResult('headers-result', `❌ Network Headers Test FAILED\n\nError: ${error.message}\n\nStack: ${error.stack}`, false);
+            }
+        }
+
+        async function runFullDiagnostic() {
+            setLoading('diagnostic-result');
+            
+            const results = [];
+            const tests = [
+                { name: 'Basic Connectivity', fn: testBasicConnectivity },
+                { name: 'Backend Health', fn: testBackendHealth },
+                { name: 'Teams API', fn: testTeamsAPI },
+                { name: 'CORS Preflight', fn: testCORSPreflight },
+                { name: 'Create Team', fn: testCreateTeam },
+                { name: 'Network Headers', fn: testNetworkHeaders }
+            ];
+            
+            for (const test of tests) {
+                try {
+                    await test.fn();
+                    results.push(`✅ ${test.name}: PASSED`);
+                } catch (error) {
+                    results.push(`❌ ${test.name}: FAILED - ${error.message}`);
+                }
+            }
+            
+            const browserInfo = `Browser Environment:
+- User Agent: ${navigator.userAgent}
+- Platform: ${navigator.platform}
+- Online: ${navigator.onLine}
+- Protocol: ${window.location.protocol}
+- Origin: ${window.location.origin}`;
+            
+            const summary = `🔍 FULL DIAGNOSTIC RESULTS
+
+${results.join('\n')}
+
+${browserInfo}
+
+🎯 RECOMMENDATIONS:
+${results.some(r => r.includes('FAILED')) ? 
+    '❌ Some tests failed. Check the individual test results above for details.' : 
+    '✅ All tests passed! The issue might be in the desktop app configuration.'}`;
+            
+            logResult('diagnostic-result', summary, !results.some(r => r.includes('FAILED')));
+        }
+    </script>
+</body>
+</html> 
