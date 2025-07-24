@@ -320,7 +320,7 @@ class Team(db.Model):
     name = db.Column(db.String(120), nullable=False)
     employee_code = db.Column(db.String(10), unique=True, nullable=False)  # Renamed from 'code'
     manager_id = db.Column(db.String(80), nullable=True)  # Added missing field
-    created_at = db.Column(db.DateTime, default=db.func.now())
+    created_at = db.Column(db.DateTime, default=db.func.now)
 
 class ManagerInvite(db.Model):
     __tablename__ = 'manager_invites'
@@ -329,7 +329,7 @@ class ManagerInvite(db.Model):
     invite_code = db.Column(db.String(12), unique=True, nullable=False)
     is_used = db.Column(db.Boolean, default=False)
     used_by = db.Column(db.String(80), nullable=True)  # user_id who used it
-    created_at = db.Column(db.DateTime, default=db.func.now())
+    created_at = db.Column(db.DateTime, default=db.func.now)
     used_at = db.Column(db.DateTime, nullable=True)
     expires_at = db.Column(db.DateTime, nullable=False)  # Manager invites expire
 
@@ -340,7 +340,7 @@ class Membership(db.Model):
     user_id = db.Column(db.String(80), nullable=False)
     user_name = db.Column(db.String(120), nullable=False)
     role = db.Column(db.String(50), nullable=False)  # 'employee' or 'manager'
-    created_at = db.Column(db.DateTime, default=db.func.now())
+    created_at = db.Column(db.DateTime, default=db.func.now)
     
     # Ensure unique team-user combinations
     __table_args__ = (db.UniqueConstraint('team_id', 'user_id', name='unique_team_user'),)
@@ -357,7 +357,7 @@ class Activity(db.Model):
     unproductive_hours = db.Column(db.Float, default=0.0)
     idle_time = db.Column(db.Float, default=0.0)  # Track idle time
     goals_completed = db.Column(db.Integer, default=0)
-    last_active = db.Column(db.DateTime, default=db.func.now())
+    last_active = db.Column(db.DateTime, default=db.func.now)
     
     # Composite index for better query performance
     __table_args__ = (db.Index('idx_user_team_date', 'user_id', 'team_id', 'date'),)
@@ -368,7 +368,7 @@ class UserSession(db.Model):
     user_id = db.Column(db.String(80), nullable=False)
     team_id = db.Column(db.String(80), nullable=False)
     role = db.Column(db.String(50), nullable=False)  # 'employee' or 'manager'
-    start_time = db.Column(db.DateTime, default=db.func.now())
+    start_time = db.Column(db.DateTime, default=db.func.now)
     end_time = db.Column(db.DateTime, nullable=True)
     is_active = db.Column(db.Boolean, default=True)
     jwt_token_hash = db.Column(db.String(64), nullable=True)  # Store hashed JWT for validation
@@ -383,7 +383,7 @@ class Task(db.Model):
     description = db.Column(db.Text, nullable=True)
     due_date = db.Column(db.DateTime, nullable=False)
     status = db.Column(db.String(20), default='pending')  # pending, in_progress, completed
-    created_at = db.Column(db.DateTime, default=db.func.now())
+    created_at = db.Column(db.DateTime, default=db.func.now)
     completed_at = db.Column(db.DateTime, nullable=True)
 
 # New Enhanced Models for SaaS Features
@@ -398,7 +398,7 @@ class User(db.Model):
     verification_token = db.Column(db.String(255), nullable=True)
     reset_token = db.Column(db.String(255), nullable=True)
     reset_token_expires = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, default=db.func.now())
+    created_at = db.Column(db.DateTime, default=db.func.now)
     last_login = db.Column(db.DateTime, nullable=True)
     
 class Subscription(db.Model):
@@ -412,8 +412,8 @@ class Subscription(db.Model):
     monthly_cost = db.Column(db.Float, default=0.0)  # $9.99 per employee
     current_period_start = db.Column(db.DateTime, nullable=True)
     current_period_end = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, default=db.func.now())
-    updated_at = db.Column(db.DateTime, default=db.func.now(), onupdate=db.func.now())
+    created_at = db.Column(db.DateTime, default=db.func.now)
+    updated_at = db.Column(db.DateTime, default=db.func.now, onupdate=db.func.now)
 
 class ProductivityReport(db.Model):
     __tablename__ = 'productivity_reports'
@@ -429,7 +429,7 @@ class ProductivityReport(db.Model):
     token_count_input = db.Column(db.Integer, default=0)
     token_count_output = db.Column(db.Integer, default=0)
     cost_estimate = db.Column(db.Float, default=0.0)
-    created_at = db.Column(db.DateTime, default=db.func.now())
+    created_at = db.Column(db.DateTime, default=db.func.now)
     
     # Composite index for efficient queries
     __table_args__ = (db.Index('idx_user_team_date_hour', 'user_id', 'team_id', 'report_date'),)
@@ -443,7 +443,7 @@ class TokenUsage(db.Model):
     input_tokens = db.Column(db.Integer, default=0)
     output_tokens = db.Column(db.Integer, default=0)
     cost_estimate = db.Column(db.Float, default=0.0)
-    created_at = db.Column(db.DateTime, default=db.func.now())
+    created_at = db.Column(db.DateTime, default=db.func.now)
     
     # Unique constraint to prevent duplicate daily records
     __table_args__ = (db.UniqueConstraint('user_id', 'team_id', 'date', name='unique_daily_token_usage'),)
