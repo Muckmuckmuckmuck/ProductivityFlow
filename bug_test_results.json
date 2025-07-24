@@ -1,0 +1,62 @@
+[
+  {
+    "test": "Backend Health",
+    "success": true,
+    "message": "Backend is healthy",
+    "timestamp": "2025-07-23T17:23:14.711378"
+  },
+  {
+    "test": "Manager Registration",
+    "success": true,
+    "message": "User ID: user_1753305794_d2ozcdzn",
+    "timestamp": "2025-07-23T17:23:17.160966"
+  },
+  {
+    "test": "Manager Login",
+    "success": true,
+    "message": "Login failed as expected (email verification required)",
+    "timestamp": "2025-07-23T17:23:19.421300"
+  },
+  {
+    "test": "Team Join Validation",
+    "success": true,
+    "message": "Properly validates missing parameters",
+    "timestamp": "2025-07-23T17:23:19.840852"
+  },
+  {
+    "test": "Team Join Non-existent",
+    "success": true,
+    "message": "Properly handles non-existent team",
+    "timestamp": "2025-07-23T17:23:20.038825"
+  },
+  {
+    "test": "API Documentation",
+    "success": false,
+    "message": "Status: 404",
+    "timestamp": "2025-07-23T17:23:20.409784"
+  },
+  {
+    "test": "Version Endpoint",
+    "success": true,
+    "message": "Version: 1.0.0",
+    "timestamp": "2025-07-23T17:23:20.758021"
+  },
+  {
+    "test": "Stripe Config",
+    "success": true,
+    "message": "Stripe configuration accessible",
+    "timestamp": "2025-07-23T17:23:20.949056"
+  },
+  {
+    "test": "CORS Headers",
+    "success": true,
+    "message": "CORS headers present",
+    "timestamp": "2025-07-23T17:23:21.295765"
+  },
+  {
+    "test": "Rate Limiting",
+    "success": true,
+    "message": "Rate limiting not triggered (acceptable)",
+    "timestamp": "2025-07-23T17:23:35.828501"
+  }
+]

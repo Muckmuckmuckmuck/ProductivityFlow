@@ -116,31 +116,51 @@ async fn get_current_activity() -> Result<ActivityData, String> {
 }
 
 #[tauri::command]
-async fn http_get(url: String) -> Result<String, String> {
+async fn http_get(url: String, headers: Option<String>) -> Result<String, String> {
     let client = reqwest::Client::new();
+    let mut request = client.get(&url);
     
-    let response = client
-        .get(&url)
+    // Add custom headers if provided
+    if let Some(headers_str) = headers {
+        if let Ok(headers_map) = serde_json::from_str::<std::collections::HashMap<String, String>>(&headers_str) {
+            for (key, value) in headers_map {
+                request = request.header(key, value);
+            }
+        }
+    }
+    
+    let response = request
         .header("Accept", "application/json")
         .header("Content-Type", "application/json")
         .send()
         .await
         .map_err(|e| e.to_string())?;
     
-    if response.status().is_success() {
-        let text = response.text().await.map_err(|e| e.to_string())?;
+    let status = response.status();
+    let text = response.text().await.map_err(|e| e.to_string())?;
+    
+    if status.is_success() || status.as_u16() == 201 {
         Ok(text)
     } else {
-        Err(format!("HTTP {}: {}", response.status(), response.status().as_str()))
+        Err(format!("HTTP {}: {}", status, status.as_str()))
     }
 }
 
 #[tauri::command]
-async fn http_post(url: String, body: String) -> Result<String, String> {
+async fn http_post(url: String, body: String, headers: Option<String>) -> Result<String, String> {
     let client = reqwest::Client::new();
+    let mut request = client.post(&url);
     
-    let response = client
-        .post(&url)
+    // Add custom headers if provided
+    if let Some(headers_str) = headers {
+        if let Ok(headers_map) = serde_json::from_str::<std::collections::HashMap<String, String>>(&headers_str) {
+            for (key, value) in headers_map {
+                request = request.header(key, value);
+            }
+        }
+    }
+    
+    let response = request
         .header("Accept", "application/json")
         .header("Content-Type", "application/json")
         .body(body)
@@ -148,11 +168,13 @@ async fn http_post(url: String, body: String) -> Result<String, String> {
         .await
         .map_err(|e| e.to_string())?;
     
-    if response.status().is_success() {
-        let text = response.text().await.map_err(|e| e.to_string())?;
+    let status = response.status();
+    let text = response.text().await.map_err(|e| e.to_string())?;
+    
+    if status.is_success() || status.as_u16() == 201 {
         Ok(text)
     } else {
-        Err(format!("HTTP {}: {}", response.status(), response.status().as_str()))
+        Err(format!("HTTP {}: {}", status, status.as_str()))
     }
 }
 

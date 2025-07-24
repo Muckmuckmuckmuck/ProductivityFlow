@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Creation Test - Debug</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .debug {
+            background: #f8f9fa;
+            color: #495057;
+            border: 1px solid #dee2e6;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Account Creation Test - Debug Version</h1>
+    
+    <form id="createAccountForm">
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="name">Name:</label>
+            <input type="text" id="name" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="organization">Organization:</label>
+            <input type="text" id="organization" required>
+        </div>
+        
+        <button type="submit">Create Account</button>
+        <button type="button" onclick="testConnection()">Test Connection</button>
+        <button type="button" onclick="clearLog()">Clear Log</button>
+    </form>
+    
+    <div id="result"></div>
+    <div id="debugLog" class="result debug"></div>
+    
+    <script>
+        const API_URL = "https://productivityflow-backend-v3.onrender.com";
+        let debugLog = [];
+        
+        function log(message) {
+            const timestamp = new Date().toISOString();
+            const logEntry = `[${timestamp}] ${message}`;
+            debugLog.push(logEntry);
+            console.log(logEntry);
+            updateDebugDisplay();
+        }
+        
+        function updateDebugDisplay() {
+            document.getElementById('debugLog').textContent = debugLog.join('\n');
+        }
+        
+        function clearLog() {
+            debugLog = [];
+            updateDebugDisplay();
+        }
+        
+        async function testConnection() {
+            log('Testing connection to backend...');
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p>Testing connection...</p>';
+            
+            try {
+                log(`Making GET request to: ${API_URL}/health`);
+                
+                const response = await fetch(`${API_URL}/health`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                log(`Response status: ${response.status}`);
+                log(`Response headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2)}`);
+                
+                const data = await response.json();
+                log(`Response data: ${JSON.stringify(data, null, 2)}`);
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <h3>✅ Connection Test Successful!</h3>
+                        <p><strong>Status:</strong> ${data.status}</p>
+                        <p><strong>Database:</strong> ${data.database}</p>
+                        <p><strong>Scheduler:</strong> ${data.scheduler}</p>
+                    `;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `
+                        <h3>❌ Connection Test Failed</h3>
+                        <p><strong>Status:</strong> ${response.status}</p>
+                        <p><strong>Data:</strong> ${JSON.stringify(data)}</p>
+                    `;
+                }
+            } catch (error) {
+                log(`Connection test error: ${error.message}`);
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <h3>❌ Connection Test Error</h3>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                    <p><strong>Type:</strong> ${error.name}</p>
+                `;
+            }
+        }
+        
+        document.getElementById('createAccountForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const name = document.getElementById('name').value;
+            const organization = document.getElementById('organization').value;
+            
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p>Creating account...</p>';
+            
+            try {
+                log('=== ACCOUNT CREATION START ===');
+                log(`Making request to: ${API_URL}/api/auth/register`);
+                log(`Request data: ${JSON.stringify({ email, password: '***', name, organization }, null, 2)}`);
+                
+                const response = await fetch(`${API_URL}/api/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email,
+                        password,
+                        name,
+                        organization
+                    })
+                });
+                
+                log(`Response status: ${response.status}`);
+                log(`Response headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2)}`);
+                
+                const data = await response.json();
+                log(`Response data: ${JSON.stringify(data, null, 2)}`);
+                
+                if (response.ok && data.message && data.message.includes("registered successfully")) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <h3>✅ Account Created Successfully!</h3>
+                        <p><strong>Message:</strong> ${data.message}</p>
+                        <p><strong>User ID:</strong> ${data.user_id}</p>
+                        <p>You can now try to sign in with your email and password.</p>
+                    `;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `
+                        <h3>❌ Account Creation Failed</h3>
+                        <p><strong>Error:</strong> ${data.error || data.message || 'Unknown error'}</p>
+                        <p><strong>Status:</strong> ${response.status}</p>
+                        <p><strong>Response:</strong> ${JSON.stringify(data)}</p>
+                    `;
+                }
+                
+                log('=== ACCOUNT CREATION END ===');
+            } catch (error) {
+                log(`Account creation error: ${error.message}`);
+                log(`Error type: ${error.name}`);
+                log(`Error stack: ${error.stack}`);
+                log('=== ACCOUNT CREATION END ===');
+                
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <h3>❌ Network Error</h3>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                    <p><strong>Type:</strong> ${error.name}</p>
+                    <p><strong>Stack:</strong> ${error.stack}</p>
+                `;
+            }
+        });
+        
+        // Auto-test connection on page load
+        window.addEventListener('load', () => {
+            log('Page loaded, auto-testing connection...');
+            testConnection();
+        });
+    </script>
+</body>
+</html> 

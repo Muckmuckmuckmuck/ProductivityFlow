@@ -7,8 +7,8 @@
     "withGlobalTauri": false
   },
   "package": {
-    "productName": "ProductivityFlow Employee Activity Tracker",
-    "version": "2.0.0"
+    "productName": "WorkFlow-Employee-Monitor-v2.3",
+    "version": "2.3.0"
   },
   "tauri": {
     "allowlist": {
@@ -65,7 +65,7 @@
       {
         "fullscreen": false,
         "resizable": true,
-        "title": "ProductivityFlow Employee Activity Tracker",
+        "title": "WorkFlow Employee Monitor v2.3",
         "width": 1200,
         "height": 800,
         "minWidth": 1000,

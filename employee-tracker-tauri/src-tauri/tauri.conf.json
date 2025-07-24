@@ -7,8 +7,8 @@
     "withGlobalTauri": false
   },
   "package": {
-    "productName": "WorkFlow Employee Monitor",
-    "version": "2.0.0"
+    "productName": "ProductivityFlow Employee Tracker v3.1.0",
+    "version": "3.1.0"
   },
   "tauri": {
     "allowlist": {
@@ -16,31 +16,12 @@
       "shell": {
         "all": false,
         "open": true
-      },
-      "window": {
-        "all": false,
-        "close": true,
-        "hide": true,
-        "maximize": true,
-        "minimize": true,
-        "unmaximize": true,
-        "unminimize": true,
-        "show": true,
-        "startDragging": true,
-        "print": false
-      },
-      "notification": {
-        "all": true
-      },
-      "http": {
-        "all": true,
-        "request": true
       }
     },
     "bundle": {
       "active": true,
       "targets": "all",
-      "identifier": "com.workflow.employee.monitor",
+      "identifier": "com.productivityflow.employee-tracker.v3.1.0",
       "icon": [
         "icons/32x32.png",
         "icons/128x128.png",
@@ -69,7 +50,7 @@
       {
         "fullscreen": false,
         "resizable": true,
-        "title": "WorkFlow Employee Monitor",
+        "title": "WorkFlow Employee Monitor v2.1",
         "width": 400,
         "height": 600,
         "minWidth": 350,

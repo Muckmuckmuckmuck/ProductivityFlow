@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Creation Test - CORS Proxy</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        .debug-log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+        .status.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <h1>Account Creation Test - CORS Proxy</h1>
+    <p>This test uses a local CORS proxy server to bypass browser CORS restrictions.</p>
+    
+    <div id="status" class="status"></div>
+    
+    <form id="accountForm">
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="organization">Organization:</label>
+            <input type="text" id="organization" name="organization" required>
+        </div>
+        
+        <button type="button" onclick="testConnection()">Test Connection</button>
+        <button type="submit">Create Account</button>
+    </form>
+    
+    <div class="debug-log" id="debugLog"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001';
+        const debugLog = document.getElementById('debugLog');
+        const statusDiv = document.getElementById('status');
+        
+        function log(message) {
+            const timestamp = new Date().toISOString();
+            debugLog.textContent += `[${timestamp}] ${message}\n`;
+            debugLog.scrollTop = debugLog.scrollHeight;
+        }
+        
+        function showStatus(message, isError = false) {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${isError ? 'error' : 'success'}`;
+        }
+        
+        // Auto-test connection on page load
+        window.addEventListener('load', () => {
+            log('Page loaded, testing proxy connection...');
+            testConnection();
+        });
+        
+        async function testConnection() {
+            try {
+                log('Testing connection to proxy server...');
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                log(`Proxy health check response: ${JSON.stringify(data, null, 2)}`);
+                
+                if (response.ok) {
+                    showStatus('✅ Proxy server is running and accessible');
+                    log('✅ Connection test successful');
+                } else {
+                    showStatus('❌ Proxy server health check failed', true);
+                    log('❌ Connection test failed');
+                }
+            } catch (error) {
+                showStatus('❌ Cannot connect to proxy server', true);
+                log(`❌ Connection test error: ${error.message}`);
+            }
+        }
+        
+        document.getElementById('accountForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const accountData = {
+                email: formData.get('email'),
+                password: formData.get('password'),
+                name: formData.get('name'),
+                organization: formData.get('organization')
+            };
+            
+            log('=== ACCOUNT CREATION START ===');
+            log(`Making request to: ${API_BASE}/api/auth/register`);
+            log(`Request data: ${JSON.stringify({...accountData, password: '***'}, null, 2)}`);
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(accountData)
+                });
+                
+                log(`Response status: ${response.status}`);
+                log(`Response headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2)}`);
+                
+                const data = await response.json();
+                log(`Response data: ${JSON.stringify(data, null, 2)}`);
+                
+                if (response.ok) {
+                    if (data.message && data.message.includes('registered successfully')) {
+                        showStatus('✅ Account created successfully! Please check your email for verification.');
+                        log('✅ Account creation successful');
+                        e.target.reset();
+                    } else {
+                        showStatus(`❌ Unexpected response: ${data.message || 'Unknown error'}`, true);
+                        log('❌ Account creation failed - unexpected response');
+                    }
+                } else {
+                    showStatus(`❌ Account creation failed: ${data.error || data.message || 'Unknown error'}`, true);
+                    log('❌ Account creation failed - HTTP error');
+                }
+            } catch (error) {
+                showStatus(`❌ Network Error: ${error.message}`, true);
+                log(`❌ Account creation error: ${error.message}`);
+                log(`Error type: ${error.constructor.name}`);
+                log(`Error stack: ${error.stack}`);
+            }
+            
+            log('=== ACCOUNT CREATION END ===');
+        });
+    </script>
+</body>
+</html> 

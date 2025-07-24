@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Login Debug Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        input, button {
+            padding: 10px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; border: 1px solid #bee5eb; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 ProductivityFlow Login Debug Tool</h1>
+        
+        <div class="section">
+            <h3>🌐 Backend Health Check</h3>
+            <button onclick="checkBackendHealth()">Check Backend Health</button>
+            <div id="healthResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h3>👤 Manager Login Test</h3>
+            <input type="email" id="managerEmail" placeholder="Email" value="Jaymreddy12@gmail.com">
+            <input type="password" id="managerPassword" placeholder="Password" value="password123">
+            <button onclick="testManagerLogin()">Test Manager Login</button>
+            <div id="managerLoginResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h3>👷 Employee Login Test</h3>
+            <input type="email" id="employeeEmail" placeholder="Email" value="Jaymreddy12@gmail.com">
+            <input type="password" id="employeePassword" placeholder="Password" value="password123">
+            <button onclick="testEmployeeLogin()">Test Employee Login</button>
+            <div id="employeeLoginResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h3>🏢 Team Creation Test</h3>
+            <input type="text" id="teamName" placeholder="Team Name" value="Debug Test Team">
+            <input type="text" id="authToken" placeholder="Auth Token (from login)">
+            <button onclick="testTeamCreation()">Test Team Creation</button>
+            <div id="teamCreationResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h3>📋 Team Listing Test</h3>
+            <input type="text" id="listToken" placeholder="Auth Token">
+            <button onclick="testTeamListing()">Test Team Listing</button>
+            <div id="teamListingResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h3>➕ Team Joining Test</h3>
+            <input type="text" id="teamCode" placeholder="Team Code" value="TEAM6">
+            <input type="text" id="userName" placeholder="User Name" value="Debug User">
+            <button onclick="testTeamJoining()">Test Team Joining</button>
+            <div id="teamJoiningResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8080'; // Use debug server
+
+        async function makeRequest(url, options = {}) {
+            try {
+                console.log('Making request to:', url);
+                console.log('Options:', options);
+                
+                const response = await fetch(url, {
+                    method: options.method || 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        ...options.headers
+                    },
+                    body: options.body
+                });
+                
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+                
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                return {
+                    status: response.status,
+                    data: data,
+                    success: response.ok
+                };
+            } catch (error) {
+                console.error('Request failed:', error);
+                return {
+                    status: 0,
+                    data: { error: error.message, details: error.toString() },
+                    success: false
+                };
+            }
+        }
+
+        function displayResult(elementId, result, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.className = `result ${type}`;
+            element.textContent = JSON.stringify(result, null, 2);
+        }
+
+        async function checkBackendHealth() {
+            const result = await makeRequest(`${API_URL}/health`);
+            displayResult('healthResult', result, result.success ? 'success' : 'error');
+        }
+
+        async function testManagerLogin() {
+            const email = document.getElementById('managerEmail').value;
+            const password = document.getElementById('managerPassword').value;
+            
+            const result = await makeRequest(`${API_URL}/api/auth/login`, {
+                method: 'POST',
+                body: JSON.stringify({ email, password })
+            });
+            
+            displayResult('managerLoginResult', result, result.success ? 'success' : 'error');
+            
+            if (result.success && result.data.token) {
+                document.getElementById('authToken').value = result.data.token;
+                document.getElementById('listToken').value = result.data.token;
+            }
+        }
+
+        async function testEmployeeLogin() {
+            const email = document.getElementById('employeeEmail').value;
+            const password = document.getElementById('employeePassword').value;
+            
+            const result = await makeRequest(`${API_URL}/api/auth/employee-login`, {
+                method: 'POST',
+                body: JSON.stringify({ email, password })
+            });
+            
+            displayResult('employeeLoginResult', result, result.success ? 'success' : 'error');
+        }
+
+        async function testTeamCreation() {
+            const teamName = document.getElementById('teamName').value;
+            const token = document.getElementById('authToken').value;
+            
+            if (!token) {
+                displayResult('teamCreationResult', { error: 'Please login first to get a token' }, 'error');
+                return;
+            }
+            
+            const result = await makeRequest(`${API_URL}/api/teams`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ name: teamName })
+            });
+            
+            displayResult('teamCreationResult', result, result.success ? 'success' : 'error');
+        }
+
+        async function testTeamListing() {
+            const token = document.getElementById('listToken').value;
+            
+            if (!token) {
+                displayResult('teamListingResult', { error: 'Please login first to get a token' }, 'error');
+                return;
+            }
+            
+            const result = await makeRequest(`${API_URL}/api/teams`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            displayResult('teamListingResult', result, result.success ? 'success' : 'error');
+        }
+
+        async function testTeamJoining() {
+            const teamCode = document.getElementById('teamCode').value;
+            const userName = document.getElementById('userName').value;
+            
+            const result = await makeRequest(`${API_URL}/api/teams/join`, {
+                method: 'POST',
+                body: JSON.stringify({ 
+                    team_code: teamCode,
+                    user_name: userName
+                })
+            });
+            
+            displayResult('teamJoiningResult', result, result.success ? 'success' : 'error');
+        }
+
+        // Auto-check backend health on load
+        window.onload = function() {
+            checkBackendHealth();
+        };
+    </script>
+</body>
+</html> 

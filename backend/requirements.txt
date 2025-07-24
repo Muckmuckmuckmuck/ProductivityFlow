@@ -1,34 +1,20 @@
-# Core Flask framework
+# Requirements for ProductivityFlow Backend
+# Compatible with Python 3.11.7
 Flask==2.3.3
 Flask-SQLAlchemy==3.0.5
 Flask-CORS==4.0.0
+Flask-Mail==0.9.1
 Flask-Limiter==3.5.0
-
-# Database - use regular psycopg2 (more reliable than binary)
-psycopg2-binary==2.9.6
-
-# Environment and configuration
-python-dotenv==1.0.0
-
-# Security and authentication
-bcrypt==4.1.2
+bcrypt==4.0.1
 PyJWT==2.8.0
 cryptography==41.0.7
-
-# External services
-redis==5.0.1
-stripe==7.6.0
-anthropic==0.7.7
-Flask-Mail==0.9.1
-
-# Background tasks and scheduling
-APScheduler==3.10.4
-
-# HTTP requests
-requests==2.31.0
-
-# Production server
+python-dotenv==1.0.0
+psycopg3-binary==3.1.18
+asyncpg==0.29.0
 gunicorn==21.2.0
-
-# Data processing - updated for Python 3.13 compatibility
-numpy==1.26.4
+redis==5.0.1
+stripe==7.8.0
+anthropic==0.7.8
+APScheduler==3.10.4
+numpy==1.24.3
+requests==2.31.0

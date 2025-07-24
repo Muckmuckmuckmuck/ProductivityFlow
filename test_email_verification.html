@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProductivityFlow - Email Verification Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2563eb;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #2563eb;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background: #1d4ed8;
+        }
+        .success {
+            background: #dcfce7;
+            color: #166534;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .error {
+            background: #fef2f2;
+            color: #dc2626;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .info {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .warning {
+            background: #fef3c7;
+            color: #92400e;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .logs {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .token-display {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            font-family: monospace;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 ProductivityFlow - Email Verification Test</h1>
+        
+        <div class="info">
+            <strong>Email Configuration Status:</strong> 
+            <span id="emailStatus">Checking...</span>
+        </div>
+
+        <div class="form-group">
+            <label for="email">Email Address:</label>
+            <input type="email" id="email" value="test@example.com" placeholder="Enter your email">
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" value="Password123" placeholder="Enter password">
+        </div>
+
+        <div class="form-group">
+            <label for="name">Full Name:</label>
+            <input type="text" id="name" value="Test User" placeholder="Enter your name">
+        </div>
+
+        <button onclick="registerUser()">📧 Register & Send Verification Email</button>
+        <button onclick="checkEmailStatus()">📬 Check Email Status</button>
+        <button onclick="verifyWithToken()">🔐 Verify with Token</button>
+        <button onclick="testLogin()">🚪 Test Login</button>
+
+        <div id="result"></div>
+        <div id="tokenSection" style="display: none;">
+            <h3>🔑 Verification Token</h3>
+            <div class="token-display" id="tokenDisplay"></div>
+            <button onclick="copyToken()">📋 Copy Token</button>
+        </div>
+        <div id="logs" class="logs"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3001';
+        const logs = [];
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}`;
+            logs.push(logMessage);
+            document.getElementById('logs').innerHTML = logs.join('\n');
+            console.log(logMessage);
+        }
+
+        function showResult(message, type = 'info') {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+
+        async function checkEmailConfiguration() {
+            log('Checking email configuration...');
+            
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                const data = await response.json();
+                
+                if (data.status === 'healthy') {
+                    document.getElementById('emailStatus').innerHTML = '✅ Backend running - Email should work';
+                    log('Backend is healthy');
+                } else {
+                    document.getElementById('emailStatus').innerHTML = '❌ Backend not responding';
+                    log('Backend not responding');
+                }
+            } catch (error) {
+                document.getElementById('emailStatus').innerHTML = '❌ Cannot connect to backend';
+                log(`Backend connection error: ${error.message}`);
+            }
+        }
+
+        async function registerUser() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const name = document.getElementById('name').value;
+            
+            if (!email || !password || !name) {
+                showResult('❌ Please fill in all fields', 'error');
+                return;
+            }
+            
+            log('Registering user...');
+            
+            try {
+                const response = await fetch(`${API_URL}/api/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password, name })
+                });
+                
+                const data = await response.json();
+                log(`Registration response: ${response.status} - ${JSON.stringify(data)}`);
+                
+                if (response.status === 201) {
+                    showResult('✅ Registration successful! Check your email for verification.', 'success');
+                    
+                    // Show token if provided (development mode)
+                    if (data.verification_token) {
+                        document.getElementById('tokenSection').style.display = 'block';
+                        document.getElementById('tokenDisplay').textContent = data.verification_token;
+                        log(`Verification token: ${data.verification_token}`);
+                    }
+                } else {
+                    showResult(`❌ Registration failed: ${data.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                log(`Registration error: ${error.message}`);
+                showResult(`❌ Registration error: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkEmailStatus() {
+            const email = document.getElementById('email').value;
+            
+            if (!email) {
+                showResult('❌ Please enter an email address', 'error');
+                return;
+            }
+            
+            log('Checking email status...');
+            showResult('📬 Check your email inbox (and spam folder) for the verification email', 'info');
+        }
+
+        async function verifyWithToken() {
+            const token = document.getElementById('tokenDisplay').textContent;
+            
+            if (!token) {
+                showResult('❌ No verification token available. Please register first.', 'error');
+                return;
+            }
+            
+            log('Verifying with token...');
+            
+            try {
+                const response = await fetch(`${API_URL}/api/auth/verify-token/${token}`);
+                const data = await response.json();
+                log(`Token verification response: ${response.status} - ${JSON.stringify(data)}`);
+                
+                if (response.ok) {
+                    showResult('✅ Email verified successfully! You can now sign in.', 'success');
+                    document.getElementById('tokenSection').style.display = 'none';
+                } else {
+                    showResult(`❌ Token verification failed: ${data.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                log(`Token verification error: ${error.message}`);
+                showResult(`❌ Token verification error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            if (!email || !password) {
+                showResult('❌ Please enter email and password', 'error');
+                return;
+            }
+            
+            log('Testing login...');
+            
+            try {
+                const response = await fetch(`${API_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                log(`Login response: ${response.status} - ${JSON.stringify(data)}`);
+                
+                if (response.ok) {
+                    showResult('✅ Login successful! Your account is working perfectly.', 'success');
+                } else {
+                    showResult(`❌ Login failed: ${data.error || 'Invalid credentials'}`, 'error');
+                }
+            } catch (error) {
+                log(`Login error: ${error.message}`);
+                showResult(`❌ Login error: ${error.message}`, 'error');
+            }
+        }
+
+        function copyToken() {
+            const token = document.getElementById('tokenDisplay').textContent;
+            navigator.clipboard.writeText(token).then(() => {
+                showResult('📋 Token copied to clipboard!', 'success');
+            });
+        }
+
+        // Check email configuration on page load
+        window.onload = function() {
+            log('Page loaded, checking email configuration...');
+            checkEmailConfiguration();
+        };
+    </script>
+</body>
+</html> 

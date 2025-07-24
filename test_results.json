@@ -1,0 +1,112 @@
+[
+  {
+    "test": "Backend Health",
+    "success": true,
+    "message": "Backend is healthy - healthy",
+    "details": {
+      "database": "connected",
+      "message": "ProductivityFlow Secure Backend is running",
+      "status": "healthy",
+      "timestamp": "2025-07-23T19:40:48.047662",
+      "version": "2.0.0"
+    },
+    "timestamp": "2025-07-23T19:40:48.051044"
+  },
+  {
+    "test": "CORS Proxy Health",
+    "success": true,
+    "message": "Proxy is healthy - healthy",
+    "details": {
+      "database": "connected",
+      "message": "ProductivityFlow Secure Backend is running",
+      "status": "healthy",
+      "timestamp": "2025-07-23T19:40:48.081876",
+      "version": "2.0.0"
+    },
+    "timestamp": "2025-07-23T19:40:48.087490"
+  },
+  {
+    "test": "HTTP Server",
+    "success": true,
+    "message": "HTTP server is serving files correctly",
+    "details": null,
+    "timestamp": "2025-07-23T19:40:48.093435"
+  },
+  {
+    "test": "User Registration",
+    "success": true,
+    "message": "User registered successfully: test_1753314048@example.com",
+    "details": {
+      "message": "User registered successfully. Please verify your email.",
+      "user": {
+        "email": "test_1753314048@example.com",
+        "name": "Test User"
+      }
+    },
+    "timestamp": "2025-07-23T19:40:48.478810"
+  },
+  {
+    "test": "User Login",
+    "success": true,
+    "message": "Login successful, token received: eyJhbGciOiJIUzI1NiIs...",
+    "details": {
+      "token_length": 180
+    },
+    "timestamp": "2025-07-23T19:40:48.991439"
+  },
+  {
+    "test": "Team Creation",
+    "success": true,
+    "message": "Team created successfully: Test Team",
+    "details": {
+      "message": "Team created successfully",
+      "team": {
+        "id": 1,
+        "name": "Test Team"
+      }
+    },
+    "timestamp": "2025-07-23T19:40:49.541471"
+  },
+  {
+    "test": "Weak Password Rejection",
+    "success": true,
+    "message": "Security test passed - expected 400",
+    "details": null,
+    "timestamp": "2025-07-23T19:40:49.546047"
+  },
+  {
+    "test": "Invalid Email Rejection",
+    "success": true,
+    "message": "Security test passed - expected 400",
+    "details": null,
+    "timestamp": "2025-07-23T19:40:49.552265"
+  },
+  {
+    "test": "SQL Injection Protection",
+    "success": true,
+    "message": "Security test passed - expected 201",
+    "details": null,
+    "timestamp": "2025-07-23T19:40:49.801565"
+  },
+  {
+    "test": "Debug Page: debug_security_test.html",
+    "success": true,
+    "message": "Page is accessible",
+    "details": null,
+    "timestamp": "2025-07-23T19:40:49.808015"
+  },
+  {
+    "test": "Debug Page: debug_everything_working.html",
+    "success": true,
+    "message": "Page is accessible",
+    "details": null,
+    "timestamp": "2025-07-23T19:40:49.810180"
+  },
+  {
+    "test": "Debug Page: debug_working_backend.html",
+    "success": true,
+    "message": "Page is accessible",
+    "details": null,
+    "timestamp": "2025-07-23T19:40:49.812677"
+  }
+]

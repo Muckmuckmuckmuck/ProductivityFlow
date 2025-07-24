@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backend Fixes Debug</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Backend Fixes Debug</h1>
+        
+        <div class="status info">
+            <strong>Backend URL:</strong> https://productivityflow-backend-v3.onrender.com<br>
+            <strong>Proxy URL:</strong> http://localhost:3001 (CORS bypass)
+        </div>
+        
+        <div class="status warning">
+            <strong>⚠️ Current Status:</strong> Backend fixes are being deployed. Email verification is required.<br>
+            <strong>🔧 Your Credentials:</strong> infoproductivityflows@gmail.com / jayreddy123<br>
+            <strong>📧 IMPORTANT:</strong> Check your email for verification link!
+        </div>
+        
+        <div class="test-section">
+            <h3>1. Health Check</h3>
+            <button onclick="testHealth()">Test Health Check</button>
+            <div id="healthResult"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>2. Account Creation</h3>
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" value="infoproductivityflows@gmail.com" placeholder="Enter email">
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" value="jayreddy123" placeholder="Enter password">
+            </div>
+            <div class="form-group">
+                <label for="name">Name:</label>
+                <input type="text" id="name" value="Jay Reddy" placeholder="Enter name">
+            </div>
+            <button onclick="testRegistration()">Create Account</button>
+            <div id="registrationResult"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>3. Sign In</h3>
+            <button onclick="testLogin()">Sign In</button>
+            <div id="loginResult"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>4. Manual Verification (Dev Mode)</h3>
+            <button onclick="testManualVerification()">Manual Verify Email</button>
+            <div id="verificationResult"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>5. Sign In After Verification</h3>
+            <button onclick="testLoginAfterVerification()">Sign In Again</button>
+            <div id="loginAfterResult"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>6. Team Creation</h3>
+            <button onclick="testTeamCreation()">Create Test Team</button>
+            <div id="teamResult"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Debug Log</h3>
+            <button onclick="clearLog()">Clear Log</button>
+            <div id="debugLog" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        const BASE_URL = 'http://localhost:3001';  // Use CORS proxy
+        let authToken = null;
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('debugLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? 'red' : type === 'success' ? 'green' : 'blue';
+            logDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('debugLog').innerHTML = '';
+        }
+
+        function showResult(elementId, success, message, data = null) {
+            const element = document.getElementById(elementId);
+            const statusClass = success ? 'success' : 'error';
+            element.innerHTML = `<div class="status ${statusClass}">${message}</div>`;
+            if (data) {
+                element.innerHTML += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            }
+        }
+
+        async function testHealth() {
+            log('Testing health check...');
+            try {
+                const response = await fetch(`${BASE_URL}/health`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log('Health check successful', 'success');
+                    showResult('healthResult', true, 
+                        `✅ Backend is healthy! Email configured: ${data.email_configured}, Dev mode: ${data.dev_mode}`, data);
+                } else {
+                    log(`Health check failed: ${response.status}`, 'error');
+                    showResult('healthResult', false, `❌ Health check failed: ${response.status}`, data);
+                }
+            } catch (error) {
+                log(`Health check error: ${error}`, 'error');
+                showResult('healthResult', false, `❌ Health check error: ${error}`);
+            }
+        }
+
+        async function testRegistration() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const name = document.getElementById('name').value;
+            
+            log(`Testing registration for ${email}...`);
+            
+            try {
+                const response = await fetch(`${BASE_URL}/api/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, name })
+                });
+                
+                const data = await response.json();
+                
+                if (response.status === 201) {
+                    log('Registration successful', 'success');
+                    showResult('registrationResult', true, 
+                        `✅ Account created! User ID: ${data.user_id}, Verified: ${data.user.is_verified}`, data);
+                } else if (response.status === 409) {
+                    log('User already exists (expected)', 'info');
+                    showResult('registrationResult', true, '✅ User already exists (expected)', data);
+                } else {
+                    log(`Registration failed: ${response.status}`, 'error');
+                    showResult('registrationResult', false, `❌ Registration failed: ${data.error}`, data);
+                }
+            } catch (error) {
+                log(`Registration error: ${error}`, 'error');
+                showResult('registrationResult', false, `❌ Registration error: ${error}`);
+            }
+        }
+
+        async function testLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            log(`Testing login for ${email}...`);
+            
+            try {
+                const response = await fetch(`${BASE_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log('Login successful', 'success');
+                    authToken = data.token;
+                    showResult('loginResult', true, '✅ Login successful! Token received.', data);
+                } else if (response.status === 401 && data.verification_required) {
+                    log('Login blocked - verification required (expected)', 'warning');
+                    showResult('loginResult', true, '⚠️ Login blocked - email verification required', data);
+                } else {
+                    log(`Login failed: ${response.status}`, 'error');
+                    showResult('loginResult', false, `❌ Login failed: ${data.error}`, data);
+                }
+            } catch (error) {
+                log(`Login error: ${error}`, 'error');
+                showResult('loginResult', false, `❌ Login error: ${error}`);
+            }
+        }
+
+        async function testManualVerification() {
+            const email = document.getElementById('email').value;
+            
+            log(`Testing manual verification for ${email}...`);
+            
+            try {
+                const response = await fetch(`${BASE_URL}/api/auth/verify-manual/${email}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log('Manual verification successful', 'success');
+                    showResult('verificationResult', true, '✅ Email manually verified!', data);
+                } else if (response.status === 403) {
+                    log('Manual verification not available in production (expected)', 'info');
+                    showResult('verificationResult', true, 'ℹ️ Manual verification not available in production mode', data);
+                } else if (response.status === 404) {
+                    log('User not found', 'error');
+                    showResult('verificationResult', false, '❌ User not found', data);
+                } else {
+                    log(`Manual verification failed: ${response.status}`, 'error');
+                    showResult('verificationResult', false, `❌ Manual verification failed: ${data.error}`, data);
+                }
+            } catch (error) {
+                log(`Manual verification error: ${error}`, 'error');
+                showResult('verificationResult', false, `❌ Manual verification error: ${error}`);
+            }
+        }
+
+        async function testLoginAfterVerification() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            log(`Testing login after verification for ${email}...`);
+            
+            try {
+                const response = await fetch(`${BASE_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log('Login after verification successful', 'success');
+                    authToken = data.token;
+                    showResult('loginAfterResult', true, '✅ Login successful after verification!', data);
+                } else {
+                    log(`Login after verification failed: ${response.status}`, 'error');
+                    showResult('loginAfterResult', false, `❌ Login failed: ${data.error}`, data);
+                }
+            } catch (error) {
+                log(`Login after verification error: ${error}`, 'error');
+                showResult('loginAfterResult', false, `❌ Login error: ${error}`);
+            }
+        }
+
+        async function testTeamCreation() {
+            if (!authToken) {
+                log('No auth token available - please login first', 'error');
+                showResult('teamResult', false, '❌ No auth token available - please login first');
+                return;
+            }
+            
+            log('Testing team creation...');
+            
+            try {
+                const response = await fetch(`${BASE_URL}/api/teams`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        name: 'Test Team',
+                        description: 'Test team for backend fixes'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.status === 201) {
+                    log('Team creation successful', 'success');
+                    showResult('teamResult', true, '✅ Team created successfully!', data);
+                } else {
+                    log(`Team creation failed: ${response.status}`, 'error');
+                    showResult('teamResult', false, `❌ Team creation failed: ${data.error}`, data);
+                }
+            } catch (error) {
+                log(`Team creation error: ${error}`, 'error');
+                showResult('teamResult', false, `❌ Team creation error: ${error}`);
+            }
+        }
+
+        // Auto-run health check on page load
+        window.onload = function() {
+            log('Page loaded - starting backend fixes debug...');
+            testHealth();
+        };
+    </script>
+</body>
+</html> 
