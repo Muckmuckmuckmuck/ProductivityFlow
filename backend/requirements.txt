@@ -1,11 +1,11 @@
 # Core Flask framework
-Flask==3.0.0
-Flask-SQLAlchemy==3.1.1
+Flask==2.3.3
+Flask-SQLAlchemy==3.0.5
 Flask-CORS==4.0.0
 Flask-Limiter==3.5.0
 
 # Database - use regular psycopg2 (more reliable than binary)
-psycopg2-binary==2.9.7
+psycopg2-binary==2.9.6
 
 # Environment and configuration
 python-dotenv==1.0.0
@@ -17,8 +17,8 @@ cryptography==41.0.7
 
 # External services
 redis==5.0.1
-stripe==7.8.0
-anthropic==0.18.1
+stripe==7.6.0
+anthropic==0.7.7
 Flask-Mail==0.9.1
 
 # Background tasks and scheduling

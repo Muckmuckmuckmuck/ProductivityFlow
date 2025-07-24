@@ -2,7 +2,7 @@ services:
   - type: web
     name: productivityflow-backend
     runtime: python
-    pythonVersion: "3.11"
+    pythonVersion: "3.11.7"
     buildCommand: "cd backend && pip install -r requirements.txt"
     startCommand: "cd backend && python application.py"
     healthCheckPath: "/health"
