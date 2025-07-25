@@ -48,7 +48,7 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
     setError("");
 
     try {
-      console.log(`Making login request to: ${API_URL}/api/auth/employee/login`);
+      console.log(`Making login request to: ${API_URL}/api/auth/employee-login`);
       
       const { invoke } = await import('@tauri-apps/api/tauri');
       const requestBody = JSON.stringify({ 
@@ -57,7 +57,7 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
       });
       
       const response = await invoke('http_post', {
-        url: `${API_URL}/api/auth/employee/login`,
+        url: `${API_URL}/api/auth/employee-login`,
         body: requestBody
       });
       

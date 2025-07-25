@@ -53,8 +53,8 @@ export function AuthView({ onAuthSuccess }: AuthViewProps) {
       
       const { http } = await import('@tauri-apps/api');
       const requestBody = { 
-        team_code: teamCode.trim(),
-        employee_name: name.trim()
+        employee_code: teamCode.trim(),
+        user_name: name.trim()
       };
       
       const response = await http.fetch(`${API_URL}/api/teams/join`, {

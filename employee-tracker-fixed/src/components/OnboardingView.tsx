@@ -53,8 +53,8 @@ export function OnboardingView({ onTeamJoin }: OnboardingViewProps) {
       
       const { invoke } = await import('@tauri-apps/api/tauri');
       const requestBody = JSON.stringify({ 
-        employee_name: name.trim(), 
-        team_code: teamCode.trim() 
+        user_name: name.trim(), 
+        employee_code: teamCode.trim() 
       });
       
       const response = await invoke('http_post', {

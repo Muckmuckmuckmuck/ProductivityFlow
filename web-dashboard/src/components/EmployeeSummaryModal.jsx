@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Button } from './ui/Button';
 import { X, Loader2, BrainCircuit, TrendingUp, TrendingDown, Clock } from 'lucide-react';
 
-const API_URL = "/api";
+const API_URL = "https://my-home-backend-7m6d.onrender.com/api";
 
 export default function EmployeeSummaryModal({ member, isOpen, onClose }) {
   const [summaryData, setSummaryData] = useState(null);

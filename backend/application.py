@@ -681,6 +681,247 @@ def get_team_performance(team_id):
         logger.error(f"Get team performance error: {e}")
         return jsonify({'error': 'Failed to get team performance'}), 500
 
+@application.route('/api/employees/<user_id>/summary', methods=['GET'])
+def get_employee_summary(user_id):
+    """Get employee summary data"""
+    try:
+        user = User.query.filter_by(id=user_id).first()
+        if not user:
+            return jsonify({'error': 'Employee not found'}), 404
+        
+        # Mock employee summary data
+        summary = {
+            'productivityScore': 85,
+            'productiveHours': 6.5,
+            'unproductiveHours': 1.5,
+            'idleHours': 0.0,
+            'aiSummary': 'John had a productive day with strong focus on development tasks. He maintained good concentration levels and took appropriate breaks. His productivity score of 85% indicates excellent performance.'
+        }
+        
+        return jsonify(summary), 200
+        
+    except Exception as e:
+        logger.error(f"Get employee summary error: {e}")
+        return jsonify({'error': 'Failed to get employee summary'}), 500
+
+@application.route('/api/employee/profile', methods=['GET'])
+def get_employee_profile():
+    """Get current employee profile"""
+    try:
+        # Mock employee profile data
+        profile = {
+            'id': 'user_001',
+            'name': 'John Doe',
+            'email': 'john.doe@company.local',
+            'team': 'Engineering Team',
+            'role': 'Developer',
+            'joinDate': '2024-01-15',
+            'totalHours': 120.5,
+            'averageProductivity': 82.5
+        }
+        
+        return jsonify(profile), 200
+        
+    except Exception as e:
+        logger.error(f"Get employee profile error: {e}")
+        return jsonify({'error': 'Failed to get employee profile'}), 500
+
+@application.route('/api/employee/activities', methods=['GET'])
+def get_employee_activities():
+    """Get employee activities for a specific date"""
+    try:
+        date = request.args.get('date', datetime.now().strftime('%Y-%m-%d'))
+        
+        # Mock activities data
+        activities = [
+            {
+                'id': 1,
+                'active_app': 'Visual Studio Code',
+                'window_title': 'main.js - project',
+                'last_active': datetime.now().isoformat(),
+                'duration': 45,
+                'productive': True
+            },
+            {
+                'id': 2,
+                'active_app': 'Slack',
+                'window_title': 'team-chat',
+                'last_active': datetime.now().isoformat(),
+                'duration': 15,
+                'productive': False
+            },
+            {
+                'id': 3,
+                'active_app': 'Chrome',
+                'window_title': 'Documentation',
+                'last_active': datetime.now().isoformat(),
+                'duration': 30,
+                'productive': True
+            }
+        ]
+        
+        return jsonify({'activities': activities}), 200
+        
+    except Exception as e:
+        logger.error(f"Get employee activities error: {e}")
+        return jsonify({'error': 'Failed to get employee activities'}), 500
+
+@application.route('/api/employee/daily-summary', methods=['GET'])
+def get_employee_daily_summary():
+    """Get employee daily summary"""
+    try:
+        # Mock daily summary data
+        summary = {
+            'date': datetime.now().strftime('%Y-%m-%d'),
+            'totalHours': 8.0,
+            'productiveHours': 6.5,
+            'unproductiveHours': 1.5,
+            'productivityScore': 85,
+            'focusSessions': 4,
+            'breaksTaken': 2,
+            'topApps': [
+                {'name': 'Visual Studio Code', 'hours': 4.5},
+                {'name': 'Chrome', 'hours': 2.0},
+                {'name': 'Slack', 'hours': 1.5}
+            ]
+        }
+        
+        return jsonify(summary), 200
+        
+    except Exception as e:
+        logger.error(f"Get employee daily summary error: {e}")
+        return jsonify({'error': 'Failed to get employee daily summary'}), 500
+
+@application.route('/api/employee/productivity-data', methods=['GET'])
+def get_employee_productivity_data():
+    """Get employee productivity data"""
+    try:
+        # Mock productivity data
+        productivity_data = {
+            'hourly_productivity': [
+                {'hour': 9, 'productive': 45, 'unproductive': 15},
+                {'hour': 10, 'productive': 50, 'unproductive': 10},
+                {'hour': 11, 'productive': 40, 'unproductive': 20},
+                {'hour': 12, 'productive': 30, 'unproductive': 30},
+                {'hour': 13, 'productive': 35, 'unproductive': 25},
+                {'hour': 14, 'productive': 55, 'unproductive': 5},
+                {'hour': 15, 'productive': 50, 'unproductive': 10},
+                {'hour': 16, 'productive': 45, 'unproductive': 15},
+                {'hour': 17, 'productive': 40, 'unproductive': 20}
+            ],
+            'app_breakdown': [
+                {'app': 'Visual Studio Code', 'hours': 4.5, 'category': 'productive'},
+                {'app': 'Chrome', 'hours': 2.0, 'category': 'productive'},
+                {'app': 'Slack', 'hours': 1.5, 'category': 'unproductive'},
+                {'app': 'Email', 'hours': 1.0, 'category': 'neutral'}
+            ],
+            'weekly_trend': [
+                {'day': 'Monday', 'productive': 6.5, 'unproductive': 1.5},
+                {'day': 'Tuesday', 'productive': 7.0, 'unproductive': 1.0},
+                {'day': 'Wednesday', 'productive': 6.0, 'unproductive': 2.0},
+                {'day': 'Thursday', 'productive': 7.5, 'unproductive': 0.5},
+                {'day': 'Friday', 'productive': 5.5, 'unproductive': 2.5}
+            ]
+        }
+        
+        return jsonify({
+            'success': True,
+            'data': productivity_data
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Get employee productivity data error: {e}")
+        return jsonify({'error': 'Failed to get employee productivity data'}), 500
+
+@application.route('/api/subscription/status', methods=['GET'])
+def get_subscription_status():
+    """Get subscription status"""
+    try:
+        # Mock subscription data
+        subscription = {
+            'status': 'active',
+            'plan': 'pro',
+            'nextBilling': '2024-02-15',
+            'teamMembers': 5,
+            'maxMembers': 10,
+            'features': ['analytics', 'reports', 'integrations']
+        }
+        
+        return jsonify(subscription), 200
+        
+    except Exception as e:
+        logger.error(f"Get subscription status error: {e}")
+        return jsonify({'error': 'Failed to get subscription status'}), 500
+
+@application.route('/api/activity/track', methods=['POST'])
+def track_activity():
+    """Track user activity"""
+    try:
+        data = request.get_json()
+        
+        # Mock activity tracking response
+        response = {
+            'success': True,
+            'message': 'Activity tracked successfully',
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        return jsonify(response), 200
+        
+    except Exception as e:
+        logger.error(f"Track activity error: {e}")
+        return jsonify({'error': 'Failed to track activity'}), 500
+
+@application.route('/api/analytics/burnout-risk', methods=['GET'])
+def get_burnout_risk():
+    """Get burnout risk analytics"""
+    try:
+        team_id = request.args.get('team_id')
+        
+        # Mock burnout risk data
+        burnout_data = {
+            'teamRisk': 'low',
+            'highRiskMembers': [
+                {'name': 'Mike Johnson', 'risk': 'medium', 'hours': 9.5}
+            ],
+            'recommendations': [
+                'Encourage more breaks',
+                'Monitor workload distribution'
+            ]
+        }
+        
+        return jsonify(burnout_data), 200
+        
+    except Exception as e:
+        logger.error(f"Get burnout risk error: {e}")
+        return jsonify({'error': 'Failed to get burnout risk'}), 500
+
+@application.route('/api/analytics/distraction-profile', methods=['GET'])
+def get_distraction_profile():
+    """Get distraction profile analytics"""
+    try:
+        team_id = request.args.get('team_id')
+        
+        # Mock distraction profile data
+        distraction_data = {
+            'topDistractions': [
+                {'app': 'Slack', 'time': 2.5, 'frequency': 15},
+                {'app': 'Email', 'time': 1.8, 'frequency': 8},
+                {'app': 'Social Media', 'time': 1.2, 'frequency': 5}
+            ],
+            'focusScore': 78,
+            'recommendations': [
+                'Enable Do Not Disturb mode',
+                'Schedule focused work blocks'
+            ]
+        }
+        
+        return jsonify(distraction_data), 200
+        
+    except Exception as e:
+        logger.error(f"Get distraction profile error: {e}")
+        return jsonify({'error': 'Failed to get distraction profile'}), 500
+
 # Initialize database
 def init_db():
     """Initialize the database"""
