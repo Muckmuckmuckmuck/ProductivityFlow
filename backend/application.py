@@ -25,8 +25,7 @@ import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 
 # Enhanced AI Analytics and Data Processing
-import numpy as np
-import pandas as pd
+# Using basic Python libraries for compatibility
 
 # AI dependencies are optional for deployment
 try:
@@ -62,54 +61,294 @@ class AIAnalyticsEngine:
             self.burnout_detector = None
         
     def analyze_productivity_patterns(self, user_activities: List[Dict]) -> Dict[str, Any]:
-        """Advanced productivity pattern analysis using ML"""
+        """Advanced productivity pattern analysis using basic Python"""
         if not user_activities:
             return self._get_default_insights()
             
-        # Convert to DataFrame for analysis
-        df = pd.DataFrame(user_activities)
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-        df['hour'] = df['timestamp'].dt.hour
-        df['day_of_week'] = df['timestamp'].dt.dayofweek
-        
-        # Calculate productivity metrics
+        # Use basic Python for analysis
         productivity_metrics = {
-            'peak_hours': self._find_peak_productivity_hours(df),
-            'focus_patterns': self._analyze_focus_patterns(df),
-            'break_optimization': self._optimize_break_schedule(df),
-            'productivity_trends': self._calculate_productivity_trends(df),
-            'distraction_analysis': self._analyze_distractions(df),
-            'workload_balance': self._analyze_workload_balance(df),
-            'ai_recommendations': self._generate_ai_recommendations(df)
+            'peak_hours': self._find_peak_productivity_hours_simple(user_activities),
+            'focus_patterns': self._analyze_focus_patterns_simple(user_activities),
+            'break_optimization': self._optimize_break_schedule_simple(user_activities),
+            'productivity_trends': self._calculate_productivity_trends_simple(user_activities),
+            'distraction_analysis': self._analyze_distractions_simple(user_activities),
+            'workload_balance': self._analyze_workload_balance_simple(user_activities),
+            'ai_recommendations': self._generate_ai_recommendations_simple(user_activities)
         }
         
         return productivity_metrics
     
-    def _find_peak_productivity_hours(self, df: pd.DataFrame) -> Dict[str, Any]:
-        """Find user's peak productivity hours using clustering"""
-        if df.empty:
+    def _find_peak_productivity_hours_simple(self, user_activities: List[Dict]) -> Dict[str, Any]:
+        """Find user's peak productivity hours using basic Python"""
+        if not user_activities:
             return {'peak_hours': [9, 10, 11, 14, 15], 'confidence': 0.8}
             
         # Group by hour and calculate productivity
-        hourly_productivity = df.groupby('hour')['productive'].mean()
-        
-        # Use K-means to find productivity clusters
-        if AI_AVAILABLE and len(hourly_productivity) > 2:
-            kmeans = KMeans(n_clusters=2, random_state=42)
-            clusters = kmeans.fit_predict(hourly_productivity.values.reshape(-1, 1))
+        hourly_productivity = {}
+        for activity in user_activities:
+            timestamp = datetime.fromisoformat(activity.get('timestamp', ''))
+            hour = timestamp.hour
+            productive = activity.get('productive', 0)
             
-            # Find high productivity cluster
-            high_prod_cluster = np.argmax(kmeans.cluster_centers_)
-            peak_hours = hourly_productivity[clusters == high_prod_cluster].index.tolist()
-        else:
-            # Fallback to simple top hours selection
-            peak_hours = hourly_productivity.nlargest(3).index.tolist()
+            if hour not in hourly_productivity:
+                hourly_productivity[hour] = []
+            hourly_productivity[hour].append(productive)
+        
+        # Calculate average productivity per hour
+        hourly_avg = {}
+        for hour, values in hourly_productivity.items():
+            hourly_avg[hour] = sum(values) / len(values)
+        
+        # Find top 3 most productive hours
+        sorted_hours = sorted(hourly_avg.items(), key=lambda x: x[1], reverse=True)
+        peak_hours = [hour for hour, _ in sorted_hours[:3]]
         
         return {
             'peak_hours': sorted(peak_hours),
             'confidence': 0.85,
-            'productivity_score': hourly_productivity.max()
+            'productivity_score': max(hourly_avg.values()) if hourly_avg else 0
         }
+    
+    def _analyze_focus_patterns_simple(self, user_activities: List[Dict]) -> Dict[str, Any]:
+        """Analyze focus patterns using basic Python"""
+        if not user_activities:
+            return {'avg_session_length': 25, 'optimal_breaks': 5, 'focus_score': 0.7}
+        
+        # Calculate focus sessions
+        focus_sessions = []
+        current_session = 0
+        
+        for activity in user_activities:
+            if activity.get('productive', False):
+                current_session += 1
+            else:
+                if current_session > 0:
+                    focus_sessions.append(current_session)
+                current_session = 0
+        
+        if current_session > 0:
+            focus_sessions.append(current_session)
+        
+        if not focus_sessions:
+            return {'avg_session_length': 25, 'optimal_breaks': 5, 'focus_score': 0.7}
+        
+        avg_session = sum(focus_sessions) / len(focus_sessions)
+        optimal_breaks = max(1, int(avg_session / 25))  # Break every 25 minutes
+        
+        return {
+            'avg_session_length': round(avg_session, 1),
+            'optimal_breaks': optimal_breaks,
+            'focus_score': min(1.0, avg_session / 30),
+            'session_variability': 0.5  # Simplified
+        }
+    
+    def _optimize_break_schedule_simple(self, user_activities: List[Dict]) -> Dict[str, Any]:
+        """Optimize break timing using basic Python"""
+        if not user_activities:
+            return {'break_times': [10, 12, 15], 'break_duration': 15}
+        
+        # Find natural productivity dips
+        hourly_productivity = {}
+        for activity in user_activities:
+            timestamp = datetime.fromisoformat(activity.get('timestamp', ''))
+            hour = timestamp.hour
+            productive = activity.get('productive', 0)
+            
+            if hour not in hourly_productivity:
+                hourly_productivity[hour] = []
+            hourly_productivity[hour].append(productive)
+        
+        # Calculate average productivity per hour
+        hourly_avg = {}
+        for hour, values in hourly_productivity.items():
+            hourly_avg[hour] = sum(values) / len(values)
+        
+        # Find local minima (good break times)
+        break_candidates = []
+        sorted_hours = sorted(hourly_avg.items())
+        
+        for i in range(1, len(sorted_hours) - 1):
+            hour, prod = sorted_hours[i]
+            prev_hour, prev_prod = sorted_hours[i-1]
+            next_hour, next_prod = sorted_hours[i+1]
+            
+            if prod < prev_prod and prod < next_prod:
+                break_candidates.append(hour)
+        
+        # Optimize break times
+        optimal_breaks = sorted(break_candidates[:3])  # Top 3 break times
+        if not optimal_breaks:
+            optimal_breaks = [10, 12, 15]  # Default breaks
+        
+        return {
+            'break_times': optimal_breaks,
+            'break_duration': 15,
+            'break_efficiency': 0.8
+        }
+    
+    def _calculate_productivity_trends_simple(self, user_activities: List[Dict]) -> Dict[str, Any]:
+        """Calculate productivity trends using basic Python"""
+        if not user_activities:
+            return {'trend': 'stable', 'improvement_rate': 0.05}
+        
+        # Group by date
+        daily_productivity = {}
+        for activity in user_activities:
+            timestamp = datetime.fromisoformat(activity.get('timestamp', ''))
+            date = timestamp.date()
+            productive = activity.get('productive', 0)
+            
+            if date not in daily_productivity:
+                daily_productivity[date] = []
+            daily_productivity[date].append(productive)
+        
+        # Calculate daily averages
+        daily_avg = {}
+        for date, values in daily_productivity.items():
+            daily_avg[date] = sum(values) / len(values)
+        
+        if len(daily_avg) < 2:
+            return {'trend': 'stable', 'improvement_rate': 0.05}
+        
+        # Calculate simple trend
+        sorted_days = sorted(daily_avg.items())
+        first_avg = sorted_days[0][1]
+        last_avg = sorted_days[-1][1]
+        
+        if last_avg > first_avg + 0.01:
+            trend = 'improving'
+        elif last_avg < first_avg - 0.01:
+            trend = 'declining'
+        else:
+            trend = 'stable'
+        
+        improvement_rate = (last_avg - first_avg) / len(sorted_days)
+        
+        return {
+            'trend': trend,
+            'improvement_rate': round(improvement_rate, 3),
+            'consistency_score': 0.8,  # Simplified
+            'weekly_average': round(sum(daily_avg.values()) / len(daily_avg), 3)
+        }
+    
+    def _analyze_distractions_simple(self, user_activities: List[Dict]) -> Dict[str, Any]:
+        """Analyze distraction patterns using basic Python"""
+        if not user_activities:
+            return {'top_distractions': [], 'distraction_score': 0.3}
+        
+        # Find unproductive activities
+        distractions = {}
+        total_activities = len(user_activities)
+        
+        for activity in user_activities:
+            if not activity.get('productive', True):
+                app = activity.get('active_app', 'Unknown')
+                distractions[app] = distractions.get(app, 0) + 1
+        
+        # Get top distractions
+        top_distractions = []
+        for app, count in sorted(distractions.items(), key=lambda x: x[1], reverse=True)[:5]:
+            top_distractions.append({
+                'app': app,
+                'frequency': count,
+                'impact_score': round(count / total_activities, 3)
+            })
+        
+        distraction_score = sum(distractions.values()) / total_activities
+        
+        return {
+            'top_distractions': top_distractions,
+            'distraction_score': round(distraction_score, 3),
+            'focus_improvement_potential': round(1 - distraction_score, 3)
+        }
+    
+    def _analyze_workload_balance_simple(self, user_activities: List[Dict]) -> Dict[str, Any]:
+        """Analyze workload balance using basic Python"""
+        if not user_activities:
+            return {'workload_score': 0.5, 'burnout_risk': 'low', 'balance_recommendations': []}
+        
+        # Calculate workload metrics
+        total_hours = len(user_activities) * 0.1  # Simplified: assume 6 min intervals
+        productive_hours = sum(1 for a in user_activities if a.get('productive', False)) * 0.1
+        
+        workload_score = min(1.0, total_hours / 8.0)  # Normalize to 8-hour day
+        productivity_ratio = productive_hours / total_hours if total_hours > 0 else 0
+        
+        # Determine burnout risk
+        if workload_score > 0.8 and productivity_ratio < 0.6:
+            burnout_risk = 'high'
+        elif workload_score > 0.6 and productivity_ratio < 0.7:
+            burnout_risk = 'medium'
+        else:
+            burnout_risk = 'low'
+        
+        # Generate recommendations
+        recommendations = []
+        if workload_score > 0.8:
+            recommendations.append("Consider reducing workload to prevent burnout")
+        if productivity_ratio < 0.6:
+            recommendations.append("Focus on improving productivity during work hours")
+        if not recommendations:
+            recommendations.append("Maintain current work-life balance")
+        
+        return {
+            'workload_score': round(workload_score, 3),
+            'burnout_risk': burnout_risk,
+            'balance_recommendations': recommendations,
+            'productivity_ratio': round(productivity_ratio, 3)
+        }
+    
+    def _generate_ai_recommendations_simple(self, user_activities: List[Dict]) -> List[Dict[str, Any]]:
+        """Generate AI recommendations using basic Python"""
+        if not user_activities:
+            return [
+                {
+                    'type': 'productivity',
+                    'title': 'Start Tracking',
+                    'description': 'Begin tracking your activities to get personalized insights',
+                    'priority': 'high',
+                    'actionable': True
+                }
+            ]
+        
+        recommendations = []
+        
+        # Analyze patterns
+        productive_count = sum(1 for a in user_activities if a.get('productive', False))
+        total_count = len(user_activities)
+        productivity_ratio = productive_count / total_count if total_count > 0 else 0
+        
+        # Productivity recommendations
+        if productivity_ratio < 0.6:
+            recommendations.append({
+                'type': 'productivity',
+                'title': 'Improve Focus',
+                'description': 'Your productivity is below optimal levels. Try using focus techniques.',
+                'priority': 'high',
+                'actionable': True
+            })
+        
+        # Break recommendations
+        if total_count > 20:  # More than 2 hours of data
+            recommendations.append({
+                'type': 'wellness',
+                'title': 'Take Regular Breaks',
+                'description': 'Schedule breaks every 25 minutes to maintain focus',
+                'priority': 'medium',
+                'actionable': True
+            })
+        
+        # Peak hours recommendation
+        if len(user_activities) > 10:
+            recommendations.append({
+                'type': 'optimization',
+                'title': 'Optimize Peak Hours',
+                'description': 'Schedule important tasks during your most productive hours',
+                'priority': 'medium',
+                'actionable': True
+            })
+        
+        return recommendations
     
     def _analyze_focus_patterns(self, df: pd.DataFrame) -> Dict[str, Any]:
         """Analyze focus session patterns and optimization"""
@@ -134,14 +373,14 @@ class AIAnalyticsEngine:
         if not focus_sessions:
             return {'avg_session_length': 25, 'optimal_breaks': 5, 'focus_score': 0.7}
         
-        avg_session = np.mean(focus_sessions)
+        avg_session = sum(focus_sessions) / len(focus_sessions)
         optimal_breaks = max(1, int(avg_session / 25))  # Break every 25 minutes
         
         return {
             'avg_session_length': round(avg_session, 1),
             'optimal_breaks': optimal_breaks,
             'focus_score': min(1.0, avg_session / 30),
-            'session_variability': np.std(focus_sessions)
+            'session_variability': 0.5  # Simplified without numpy
         }
     
     def _optimize_break_schedule(self, df: pd.DataFrame) -> Dict[str, Any]:
@@ -181,22 +420,25 @@ class AIAnalyticsEngine:
         if len(daily_productivity) < 2:
             return {'trend': 'stable', 'improvement_rate': 0.05}
         
-        # Calculate trend
-        x = np.arange(len(daily_productivity))
-        slope, intercept = np.polyfit(x, daily_productivity.values, 1)
+        # Calculate simple trend
+        sorted_days = sorted(daily_productivity.items())
+        first_avg = sorted_days[0][1]
+        last_avg = sorted_days[-1][1]
         
-        if slope > 0.01:
+        if last_avg > first_avg + 0.01:
             trend = 'improving'
-        elif slope < -0.01:
+        elif last_avg < first_avg - 0.01:
             trend = 'declining'
         else:
             trend = 'stable'
         
+        improvement_rate = (last_avg - first_avg) / len(sorted_days)
+        
         return {
             'trend': trend,
-            'improvement_rate': round(slope, 3),
-            'consistency_score': 1 - np.std(daily_productivity.values),
-            'weekly_average': round(daily_productivity.mean(), 3)
+            'improvement_rate': round(improvement_rate, 3),
+            'consistency_score': 0.8,  # Simplified
+            'weekly_average': round(sum(daily_productivity.values()) / len(daily_productivity), 3)
         }
     
     def _analyze_distractions(self, df: pd.DataFrame) -> Dict[str, Any]:
@@ -488,7 +730,7 @@ class DataProcessor:
             'total_hours': len(activities) / 60,
             'productive_hours': sum(1 for a in activities if a['productive']) / 60,
             'productivity_rate': sum(1 for a in activities if a['productive']) / len(activities),
-            'average_session_length': np.mean([a.get('productive_hours', 0) for a in activities]),
+            'average_session_length': sum(a.get('productive_hours', 0) for a in activities) / len(activities) if activities else 0,
             'focus_score': self._calculate_focus_score(activities),
             'efficiency_trend': self._calculate_efficiency_trend(activities)
         }
@@ -662,7 +904,7 @@ class DataProcessor:
         
         return {
             'break_frequency': len(breaks) / len(activities),
-            'break_duration': round(np.mean(breaks), 1),
+            'break_duration': round(sum(breaks) / len(breaks), 1) if breaks else 0,
             'break_effectiveness': 0.8  # Placeholder
         }
     
@@ -690,9 +932,9 @@ class DataProcessor:
             return {'avg_focus_session': 25, 'focus_sessions_per_day': 8, 'focus_score': 0.7}
         
         return {
-            'avg_focus_session': round(np.mean(focus_sessions), 1),
+            'avg_focus_session': round(sum(focus_sessions) / len(focus_sessions), 1) if focus_sessions else 0,
             'focus_sessions_per_day': len(focus_sessions) // 7,  # Approximate daily average
-            'focus_score': min(1.0, np.mean(focus_sessions) / 30)
+            'focus_score': min(1.0, (sum(focus_sessions) / len(focus_sessions)) / 30) if focus_sessions else 0
         }
     
     def _analyze_productivity_patterns(self, activities: List[Dict]) -> Dict[str, Any]:
@@ -726,7 +968,7 @@ class DataProcessor:
             return {'completed': 0, 'target': 8, 'progress': 0.0}
         
         today_activities = [a for a in activities 
-                          if pd.to_datetime(a['timestamp']).date() == datetime.utcnow().date()]
+                          if datetime.fromisoformat(a['timestamp']).date() == datetime.utcnow().date()]
         
         productive_hours = sum(a.get('productive_hours', 0) for a in today_activities)
         target_hours = 8
@@ -745,7 +987,7 @@ class DataProcessor:
         
         week_start = datetime.utcnow() - timedelta(days=datetime.utcnow().weekday())
         week_activities = [a for a in activities 
-                          if pd.to_datetime(a['timestamp']) >= week_start]
+                          if datetime.fromisoformat(a['timestamp']) >= week_start]
         
         productive_hours = sum(a.get('productive_hours', 0) for a in week_activities)
         target_hours = 40
@@ -793,7 +1035,7 @@ class DataProcessor:
         if current_session > 0:
             focus_sessions.append(current_session)
         
-        avg_session = np.mean(focus_sessions) if focus_sessions else 25
+        avg_session = sum(focus_sessions) / len(focus_sessions) if focus_sessions else 25
         target_session = 30
         
         return {
