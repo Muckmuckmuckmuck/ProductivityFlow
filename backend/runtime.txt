@@ -1,2 +1,2 @@
-python-3.11.7
-# This version is compatible with psycopg3-binary and other dependencies
+python-3.13.4
+# This version is compatible with psycopg3 and other dependencies

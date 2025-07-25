@@ -1,7 +1,7 @@
 setuptools>=65.0.0
 wheel
 # Requirements for ProductivityFlow Backend
-# Compatible with Python 3.11.7
+# Compatible with Python 3.13.4
 Flask==2.3.3
 Flask-SQLAlchemy==3.0.5
 Flask-CORS==4.0.0
@@ -18,5 +18,5 @@ redis==5.0.1
 stripe==7.8.0
 anthropic==0.7.8
 APScheduler==3.10.4
-numpy==1.24.3
+numpy>=1.26.0
 requests==2.31.0

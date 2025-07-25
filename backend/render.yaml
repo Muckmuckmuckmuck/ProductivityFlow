@@ -6,6 +6,6 @@ services:
     startCommand: gunicorn -w 1 -b 0.0.0.0:$PORT application:application
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.7
+        value: 3.13.4
       - key: PYTHONPATH
         value: /opt/render/project/src/backend 
