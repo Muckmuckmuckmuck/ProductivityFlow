@@ -942,8 +942,11 @@ if DATABASE_URL and DATABASE_URL.startswith('postgresql://'):
         # Convert to psycopg3 format if needed
         if 'psycopg2' in DATABASE_URL:
             DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+psycopg://')
+        elif not 'psycopg' in DATABASE_URL:
+            # Add psycopg3 driver if not specified
+            DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+psycopg://')
         application.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
-        logger.info("✅ Using PostgreSQL database")
+        logger.info("✅ Using PostgreSQL database with psycopg3")
     except Exception as e:
         logger.warning(f"⚠️ PostgreSQL connection failed: {e}")
         application.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///productivityflow.db'
