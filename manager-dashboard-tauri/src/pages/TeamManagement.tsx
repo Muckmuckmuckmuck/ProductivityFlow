@@ -63,11 +63,7 @@ export default function TeamManagementPage() {
       }
       
       const response = await invoke('http_get', { 
-        url: `${API_URL}/api/teams`,
-        headers: JSON.stringify({
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        })
+        url: `${API_URL}/api/teams`
       });
       
       const data = JSON.parse(response as string);
@@ -159,7 +155,6 @@ export default function TeamManagementPage() {
         url: `${API_URL}/api/teams`,
         body: JSON.stringify(requestBody),
         headers: JSON.stringify({
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         })
       });

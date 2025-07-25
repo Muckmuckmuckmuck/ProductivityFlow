@@ -59,7 +59,11 @@ export function OnboardingView({ onTeamJoin }: OnboardingViewProps) {
       
       const response = await invoke('http_post', {
         url: `${API_URL}/api/teams/join`,
-        body: requestBody
+        body: requestBody,
+        headers: JSON.stringify({
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        })
       });
       
       const data = JSON.parse(response as string);

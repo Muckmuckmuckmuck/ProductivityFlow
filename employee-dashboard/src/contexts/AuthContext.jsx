@@ -16,7 +16,7 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [token, setToken] = useState(localStorage.getItem('employee_token'));
 
-  const API_BASE_URL = 'http://localhost:5000';
+  const API_BASE_URL = 'https://my-home-backend-7m6d.onrender.com';
 
   useEffect(() => {
     if (token) {
@@ -44,10 +44,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const login = async (employeeCode) => {
+  const login = async (email, password) => {
     try {
       const response = await axios.post(`${API_BASE_URL}/api/auth/employee-login`, {
-        employee_code: employeeCode
+        email: email,
+        password: password
       });
 
       if (response.data.token) {

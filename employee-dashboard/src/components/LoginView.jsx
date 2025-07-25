@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { User, Lock, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginView() {
-  const [employeeCode, setEmployeeCode] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -18,7 +19,7 @@ export default function LoginView() {
     setIsLoading(true);
 
     try {
-      const result = await login(employeeCode);
+      const result = await login(email, password);
       if (result.success) {
         navigate('/');
       } else {
@@ -48,22 +49,43 @@ export default function LoginView() {
         
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div>
-            <label htmlFor="employee-code" className="sr-only">
-              Employee Code
+            <label htmlFor="email" className="sr-only">
+              Email
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <User className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                className="appearance-none rounded-md relative block w-full px-3 py-2 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label htmlFor="password" className="sr-only">
+              Password
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Lock className="h-5 w-5 text-gray-400" />
               </div>
               <input
-                id="employee-code"
-                name="employee-code"
+                id="password"
+                name="password"
                 type={showPassword ? "text" : "password"}
                 required
                 className="appearance-none rounded-md relative block w-full px-3 py-2 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Enter your employee code"
-                value={employeeCode}
-                onChange={(e) => setEmployeeCode(e.target.value)}
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
               <button
                 type="button"

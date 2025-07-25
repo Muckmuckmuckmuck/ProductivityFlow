@@ -17,7 +17,7 @@ export default function ActivityView() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
-  const API_BASE_URL = 'http://localhost:5000';
+  const API_BASE_URL = 'https://my-home-backend-7m6d.onrender.com';
 
   useEffect(() => {
     fetchActivities();

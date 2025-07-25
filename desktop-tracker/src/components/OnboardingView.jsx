@@ -50,8 +50,8 @@ export function OnboardingView({ onTeamJoin }) {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ 
-                    name: name.trim(), 
-                    team_code: teamCode.trim() 
+                    user_name: name.trim(), 
+                    employee_code: teamCode.trim() 
                 })
             });
             

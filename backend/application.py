@@ -488,11 +488,13 @@ def get_public_teams():
 
 @application.route('/api/teams/join', methods=['POST'])
 def join_team():
-    """Join a team with employee code"""
+    """Join a team with employee code - supports both field name formats"""
     try:
         data = request.get_json()
-        employee_code = data.get('employee_code')
-        user_name = data.get('user_name')
+        
+        # Support both field name formats for backward compatibility
+        employee_code = data.get('employee_code') or data.get('team_code')
+        user_name = data.get('user_name') or data.get('employee_name') or data.get('name')
         
         if not all([employee_code, user_name]):
             return jsonify({'error': 'Employee code and user name required'}), 400
@@ -524,7 +526,8 @@ def join_team():
             },
             'user': {
                 'id': user_id,
-                'name': user_name
+                'name': user_name,
+                'role': 'employee'
             }
         }), 200
         
@@ -606,6 +609,77 @@ def get_team_members(team_id):
     except Exception as e:
         logger.error(f"Get team members error: {e}")
         return jsonify({'error': 'Failed to get team members'}), 500
+
+@application.route('/api/teams/<team_id>/stats', methods=['GET'])
+def get_team_stats(team_id):
+    """Get team statistics"""
+    try:
+        team = Team.query.filter_by(id=team_id).first()
+        if not team:
+            return jsonify({'error': 'Team not found'}), 404
+        
+        # Mock stats data
+        stats = {
+            'totalMembers': 3,
+            'activeMembers': 2,
+            'totalProductiveHours': 19.0,
+            'totalUnproductiveHours': 5.0,
+            'averageProductivity': 82.5,
+            'weeklyGrowth': 5.2,
+            'monthlyGrowth': 12.8,
+            'topPerformer': 'Jane Smith',
+            'mostImproved': 'John Doe',
+            'teamEfficiency': 85.7
+        }
+        
+        return jsonify(stats), 200
+        
+    except Exception as e:
+        logger.error(f"Get team stats error: {e}")
+        return jsonify({'error': 'Failed to get team stats'}), 500
+
+@application.route('/api/teams/<team_id>/performance', methods=['GET'])
+def get_team_performance(team_id):
+    """Get team performance data"""
+    try:
+        team = Team.query.filter_by(id=team_id).first()
+        if not team:
+            return jsonify({'error': 'Team not found'}), 404
+        
+        # Mock performance data
+        performance = {
+            'topPerformers': [
+                {
+                    'name': 'Jane Smith',
+                    'productivityScore': 90,
+                    'role': 'Designer',
+                    'improvement': '+15%'
+                },
+                {
+                    'name': 'John Doe',
+                    'productivityScore': 85,
+                    'role': 'Developer',
+                    'improvement': '+8%'
+                }
+            ],
+            'needsImprovement': [
+                {
+                    'name': 'Mike Johnson',
+                    'productivityScore': 70,
+                    'role': 'Manager',
+                    'issue': 'Too many meetings'
+                }
+            ],
+            'teamAverage': 82.5,
+            'weeklyTrend': 'up',
+            'monthlyTrend': 'up'
+        }
+        
+        return jsonify(performance), 200
+        
+    except Exception as e:
+        logger.error(f"Get team performance error: {e}")
+        return jsonify({'error': 'Failed to get team performance'}), 500
 
 # Initialize database
 def init_db():
