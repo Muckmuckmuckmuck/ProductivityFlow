@@ -49,7 +49,69 @@ else:
 
 # Initialize extensions
 db = SQLAlchemy(application)
-CORS(application)
+
+# Enhanced CORS Configuration for desktop apps
+CORS(application, 
+     origins=["http://localhost:1420", "http://localhost:1421", "http://localhost:3000", 
+              "tauri://localhost", "https://tauri.localhost", "*"],
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
+     allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", 
+                   "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers",
+                   "Cache-Control", "Pragma"],
+     supports_credentials=True,
+     expose_headers=["Content-Length", "X-JSON", "Authorization"],
+     max_age=86400)
+
+# Enhanced preflight OPTIONS handler for all routes
+@application.before_request
+def handle_preflight():
+    """Handle all CORS preflight requests globally"""
+    if request.method == "OPTIONS":
+        response = jsonify({
+            'status': 'OK', 
+            'message': 'CORS preflight successful',
+            'allowed_methods': ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
+            'allowed_origins': '*'
+        })
+        
+        # Set comprehensive CORS headers
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add("Access-Control-Allow-Credentials", "true")
+        response.headers.add('Access-Control-Allow-Headers', 
+                           "Content-Type,Authorization,X-Requested-With,Accept,Origin," +
+                           "Access-Control-Request-Method,Access-Control-Request-Headers," +
+                           "Cache-Control,Pragma")
+        response.headers.add('Access-Control-Allow-Methods', 
+                           "GET,PUT,POST,DELETE,OPTIONS,PATCH,HEAD")
+        response.headers.add('Access-Control-Max-Age', "86400")
+        response.status_code = 200
+        return response
+
+# Add comprehensive CORS headers to all responses
+@application.after_request
+def after_request(response):
+    """Add CORS headers to all responses"""
+    origin = request.headers.get('Origin')
+    if origin:
+        response.headers.add('Access-Control-Allow-Origin', origin)
+    else:
+        response.headers.add('Access-Control-Allow-Origin', '*')
+    
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    response.headers.add('Access-Control-Allow-Headers', 
+                        'Content-Type,Authorization,X-Requested-With,Accept,Origin,' +
+                        'Cache-Control,Pragma')
+    response.headers.add('Access-Control-Allow-Methods', 
+                        'GET,PUT,POST,DELETE,OPTIONS,PATCH,HEAD')
+    response.headers.add('Access-Control-Expose-Headers', 'Content-Length,X-JSON,Authorization')
+    
+    # Prevent caching of API responses unless explicitly set
+    if not response.headers.get('Cache-Control'):
+        response.headers.add('Cache-Control', 'no-cache, no-store, must-revalidate')
+        response.headers.add('Pragma', 'no-cache')
+        response.headers.add('Expires', '0')
+    
+    return response
 
 # Models - Fixed to handle missing columns
 class Team(db.Model):
