@@ -1153,7 +1153,7 @@ class Activity(db.Model):
     breaks_taken = db.Column(db.Integer, default=0, nullable=False)
     productivity_score = db.Column(db.Float, default=0.0, nullable=False)
     last_active = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    metadata = db.Column(db.JSON, nullable=True)
+    activity_metadata = db.Column(db.JSON, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
