@@ -26,9 +26,17 @@ from sentry_sdk.integrations.flask import FlaskIntegration
 
 # Enhanced AI Analytics and Data Processing
 import numpy as np
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
 import pandas as pd
+
+# AI dependencies are optional for deployment
+try:
+    from sklearn.cluster import KMeans
+    from sklearn.preprocessing import StandardScaler
+    AI_AVAILABLE = True
+except ImportError:
+    AI_AVAILABLE = False
+    print("Warning: AI dependencies not available. Using simplified analytics.")
+
 from datetime import datetime, timedelta, timezone
 import json
 import hashlib
@@ -44,9 +52,14 @@ class AIAnalyticsEngine:
     """Google-level AI analytics engine for productivity insights"""
     
     def __init__(self):
-        self.scaler = StandardScaler()
-        self.productivity_model = None
-        self.burnout_detector = None
+        if AI_AVAILABLE:
+            self.scaler = StandardScaler()
+            self.productivity_model = None
+            self.burnout_detector = None
+        else:
+            self.scaler = None
+            self.productivity_model = None
+            self.burnout_detector = None
         
     def analyze_productivity_patterns(self, user_activities: List[Dict]) -> Dict[str, Any]:
         """Advanced productivity pattern analysis using ML"""
@@ -81,7 +94,7 @@ class AIAnalyticsEngine:
         hourly_productivity = df.groupby('hour')['productive'].mean()
         
         # Use K-means to find productivity clusters
-        if len(hourly_productivity) > 2:
+        if AI_AVAILABLE and len(hourly_productivity) > 2:
             kmeans = KMeans(n_clusters=2, random_state=42)
             clusters = kmeans.fit_predict(hourly_productivity.values.reshape(-1, 1))
             
@@ -89,6 +102,7 @@ class AIAnalyticsEngine:
             high_prod_cluster = np.argmax(kmeans.cluster_centers_)
             peak_hours = hourly_productivity[clusters == high_prod_cluster].index.tolist()
         else:
+            # Fallback to simple top hours selection
             peak_hours = hourly_productivity.nlargest(3).index.tolist()
         
         return {
