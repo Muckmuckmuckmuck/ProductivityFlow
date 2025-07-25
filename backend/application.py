@@ -27,6 +27,10 @@ application.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'jwt-sec
 # Database configuration
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL:
+    # Convert psycopg2 URL to psycopg3 URL if needed
+    if DATABASE_URL.startswith('postgresql://'):
+        DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+psycopg://')
+    
     # Try to use PostgreSQL, fallback to SQLite if there are issues
     try:
         application.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
