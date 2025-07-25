@@ -16,7 +16,7 @@ A modern web-based dashboard for employees to view their productivity data, acti
 
 - Node.js (v16 or higher)
 - npm or yarn
-- ProductivityFlow backend running on `http://localhost:5000`
+- ProductivityFlow backend running on `https://my-home-backend-7m6d.onrender.com`
 
 ### Installation
 

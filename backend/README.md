@@ -148,6 +148,11 @@ The backend is designed to be deployed on Render.com with automatic database ini
 3. Deploy as a Web Service
 4. The application will automatically initialize the database on first startup
 
+### Current Production Backend
+- **URL**: `https://my-home-backend-7m6d.onrender.com`
+- **Status**: ✅ Fully operational
+- **Health Check**: `https://my-home-backend-7m6d.onrender.com/health`
+
 ## Monitoring
 
 - **Health Check**: `/health` endpoint for monitoring
