@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
-import { Users, Crown, Copy, UserPlus, TrendingUp, TrendingDown, Plus, Loader2, AlertCircle, UserMinus } from 'lucide-react';
+import { Users, Crown, Copy, UserPlus, TrendingUp, TrendingDown, Plus, Loader2, AlertCircle, UserMinus, Trash2 } from 'lucide-react';
 import EmployeeSummaryModal from '../components/EmployeeSummaryModal';
 
 // Updated to use the Render backend URL (working)
@@ -171,8 +171,8 @@ export default function TeamManagementPage() {
       const newTeam = {
         id: data.team.id.toString(),
         name: data.team.name,
-        code: `TEAM${data.team.id}`, // Generate a simple team code
-        memberCount: 1
+        code: data.team.employee_code || `TEAM${data.team.id}`, // Use the actual employee code
+        memberCount: 0
       };
       
       console.log('New team created:', newTeam);
@@ -218,6 +218,108 @@ export default function TeamManagementPage() {
 
   const handleRetry = () => {
     loadTeams();
+  };
+
+  const handleDeleteTeam = async (teamId: string, teamName: string) => {
+    if (!confirm(`Are you sure you want to delete the team "${teamName}"? This will permanently delete the team and all its members. This action cannot be undone.`)) {
+      return;
+    }
+    
+    setRemovingMember(teamId); // Reuse the loading state
+    setError(null);
+    
+    try {
+      const { invoke } = await import('@tauri-apps/api/tauri');
+      
+      // Get the auth token from localStorage
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+      
+      const response = await invoke('http_delete', {
+        url: `${API_URL}/api/teams/${teamId}`,
+        headers: JSON.stringify({
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        })
+      });
+      
+      const data = JSON.parse(response as string);
+      
+      if (data.success) {
+        // Remove team from local state
+        setTeams(prev => prev.filter(team => team.id !== teamId));
+        
+        // If the deleted team was selected, select the first available team
+        if (selectedTeam?.id === teamId) {
+          const remainingTeams = teams.filter(team => team.id !== teamId);
+          if (remainingTeams.length > 0) {
+            setSelectedTeam(remainingTeams[0]);
+          } else {
+            setSelectedTeam(null);
+          }
+        }
+        
+        alert(`Team "${teamName}" deleted successfully!`);
+      } else {
+        throw new Error(data.message || 'Failed to delete team');
+      }
+    } catch (error: any) {
+      console.error("Failed to delete team:", error);
+      setError(error.message || "Failed to delete team");
+      alert(`Failed to delete team: ${error.message}`);
+    } finally {
+      setRemovingMember(null);
+    }
+  };
+
+  const handleRemoveTestUsers = async () => {
+    if (!selectedTeam) return;
+    
+    if (!confirm(`Are you sure you want to remove all test users (John Doe, Jane Smith, Mike Johnson) from the team "${selectedTeam.name}"? This will clean up the test data.`)) {
+      return;
+    }
+    
+    setError(null);
+    
+    try {
+      const { invoke } = await import('@tauri-apps/api/tauri');
+      
+      const response = await invoke('http_post', {
+        url: `${API_URL}/api/teams/${selectedTeam.id}/remove-test-users`,
+        headers: JSON.stringify({
+          'Content-Type': 'application/json'
+        }),
+        body: JSON.stringify({})
+      });
+      
+      const data = JSON.parse(response as string);
+      
+      if (data.success) {
+        // Reload team members to reflect changes
+        await loadTeamMembers(selectedTeam.id);
+        
+        // Show success notification
+        const notification = document.createElement('div');
+        notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-md shadow-lg z-50';
+        notification.textContent = `Removed ${data.removed_users?.length || 0} test users from the team.`;
+        document.body.appendChild(notification);
+        setTimeout(() => document.body.removeChild(notification), 3000);
+      } else {
+        throw new Error(data.message || 'Failed to remove test users');
+      }
+    } catch (error: any) {
+      console.error("Failed to remove test users:", error);
+      setError(error.message || "Failed to remove test users");
+      
+      // Show error notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-md shadow-lg z-50';
+      notification.textContent = `Failed to remove test users: ${error.message}`;
+      document.body.appendChild(notification);
+      setTimeout(() => document.body.removeChild(notification), 3000);
+    }
   };
 
   const handleRemoveMember = async (memberId: string, memberName: string) => {
@@ -353,21 +455,36 @@ export default function TeamManagementPage() {
                   </div>
                 ) : (
                   teams.map(team => (
-                    <button 
+                    <div 
                       key={team.id} 
-                      onClick={() => handleTeamSelect(team)} 
-                      className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                      className={`w-full p-3 rounded-lg border transition-colors ${
                         selectedTeam?.id === team.id 
                           ? 'bg-indigo-100 border-indigo-300' 
                           : 'hover:bg-gray-100'
                       }`}
                     >
-                      <div className="flex justify-between items-center">
-                        <span className="font-semibold text-gray-800">{team.name}</span>
-                        <Badge>Active</Badge>
+                      <div className="flex justify-between items-start">
+                        <button 
+                          onClick={() => handleTeamSelect(team)} 
+                          className="flex-1 text-left"
+                        >
+                          <div className="flex justify-between items-center">
+                            <span className="font-semibold text-gray-800">{team.name}</span>
+                            <Badge>Active</Badge>
+                          </div>
+                          <p className="text-sm text-gray-500">{team.memberCount} members</p>
+                        </button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteTeam(team.id, team.name)}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          title="Delete team"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <p className="text-sm text-gray-500">{team.memberCount} members</p>
-                    </button>
+                    </div>
                   ))
                 )}
               </CardContent>
@@ -397,9 +514,19 @@ export default function TeamManagementPage() {
                     <div>
                     <div className="flex justify-between items-center mb-4">
                       <h3 className="text-lg font-semibold">Team Members</h3>
-                      <Button variant="outline">
-                        <UserPlus className="h-4 w-4 mr-2"/>Invite
-                      </Button>
+                      <div className="flex space-x-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleRemoveTestUsers()}
+                          className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2"/>Remove Test Users
+                        </Button>
+                        <Button variant="outline">
+                          <UserPlus className="h-4 w-4 mr-2"/>Invite
+                        </Button>
+                      </div>
                     </div>
                     <div className="space-y-3">
                       {loadingMembers ? (
