@@ -92,7 +92,7 @@ export function OnboardingView({ onTeamJoin }: OnboardingViewProps) {
       
       // Join team directly (this will create the user account)
       const requestBody = {
-        team_code: teamCode.trim().toUpperCase(),
+        employee_code: teamCode.trim().toUpperCase(),
         user_name: name.trim()
       };
       
@@ -106,16 +106,16 @@ export function OnboardingView({ onTeamJoin }: OnboardingViewProps) {
       
       const data = JSON.parse(response as string);
 
-      if (data.success && data.user) {
+      if (data.message && data.user && data.team) {
         setSuccess('Successfully joined team!');
         
         // Call the onTeamJoin callback with the session data
         onTeamJoin({
-          teamId: data.user.team_id.toString(),
-          teamName: data.user.team_name,
+          teamId: data.team.id.toString(),
+          teamName: data.team.name,
           userId: data.user.id.toString(),
           userName: data.user.name,
-          role: data.user.role,
+          role: 'employee',
           token: data.token,
         });
       } else {

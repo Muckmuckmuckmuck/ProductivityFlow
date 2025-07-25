@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProductivityFlow Authentication Debugger</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+            padding: 25px;
+            border: 2px solid #f0f0f0;
+            border-radius: 10px;
+            background: #fafafa;
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .result.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+
+        .credentials {
+            background: #e8f5e8;
+            border: 2px solid #28a745;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+
+        .credentials h3 {
+            color: #155724;
+            margin-bottom: 15px;
+        }
+
+        .credential-item {
+            background: white;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #28a745;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-online {
+            background: #28a745;
+        }
+
+        .status-offline {
+            background: #dc3545;
+        }
+
+        .quick-test {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .test-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+            text-align: center;
+        }
+
+        .test-card h4 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e9ecef;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 15px 25px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 16px;
+            font-weight: 600;
+            color: #6c757d;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 ProductivityFlow Debugger</h1>
+            <p>Real-time authentication and API testing interface</p>
+        </div>
+
+        <div class="content">
+            <!-- Status Section -->
+            <div class="section">
+                <h2>📊 System Status</h2>
+                <div id="status-display">
+                    <p><span class="status-indicator status-offline" id="backend-status"></span> Backend Status: <span id="backend-text">Checking...</span></p>
+                    <p><span class="status-indicator status-offline" id="database-status"></span> Database Status: <span id="database-text">Checking...</span></p>
+                </div>
+                <button class="btn" onclick="checkSystemStatus()">🔄 Refresh Status</button>
+            </div>
+
+            <!-- Test Credentials -->
+            <div class="credentials">
+                <h3>🔑 Working Test Credentials</h3>
+                <div class="credential-item">
+                    <strong>Manager Dashboard:</strong> manager@productivityflow.com / password123
+                </div>
+                <div class="credential-item">
+                    <strong>Employee Tracker:</strong> employee@productivityflow.com / password123
+                </div>
+                <div class="credential-item">
+                    <strong>Test User:</strong> test@example.com / password123
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('quick-tests')">Quick Tests</button>
+                <button class="tab" onclick="showTab('auth-tests')">Authentication</button>
+                <button class="tab" onclick="showTab('api-tests')">API Endpoints</button>
+                <button class="tab" onclick="showTab('custom-tests')">Custom Tests</button>
+            </div>
+
+            <!-- Quick Tests Tab -->
+            <div id="quick-tests" class="tab-content active">
+                <div class="section">
+                    <h2>⚡ Quick Tests</h2>
+                    <div class="quick-test">
+                        <div class="test-card">
+                            <h4>Health Check</h4>
+                            <button class="btn btn-success" onclick="quickTest('health')">Test Health</button>
+                        </div>
+                        <div class="test-card">
+                            <h4>Manager Login</h4>
+                            <button class="btn btn-success" onclick="quickTest('manager-login')">Test Login</button>
+                        </div>
+                        <div class="test-card">
+                            <h4>Employee Login</h4>
+                            <button class="btn btn-success" onclick="quickTest('employee-login')">Test Login</button>
+                        </div>
+                        <div class="test-card">
+                            <h4>User Registration</h4>
+                            <button class="btn btn-success" onclick="quickTest('register')">Test Register</button>
+                        </div>
+                    </div>
+                    <div id="quick-result" class="result"></div>
+                </div>
+            </div>
+
+            <!-- Authentication Tests Tab -->
+            <div id="auth-tests" class="tab-content">
+                <div class="section">
+                    <h2>🔐 Authentication Tests</h2>
+                    
+                    <div class="form-group">
+                        <label for="auth-endpoint">Endpoint:</label>
+                        <select id="auth-endpoint">
+                            <option value="/api/auth/register">Register User</option>
+                            <option value="/api/auth/login">Manager Login</option>
+                            <option value="/api/auth/employee-login">Employee Login</option>
+                            <option value="/api/auth/forgot-password">Forgot Password</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="auth-email">Email:</label>
+                        <input type="email" id="auth-email" placeholder="Enter email" value="test@debug.com">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="auth-password">Password:</label>
+                        <input type="password" id="auth-password" placeholder="Enter password" value="password123">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="auth-name">Name:</label>
+                        <input type="text" id="auth-name" placeholder="Enter name" value="Debug User">
+                    </div>
+
+                    <button class="btn" onclick="testAuth()">🚀 Test Authentication</button>
+                    <button class="btn btn-secondary" onclick="clearAuthResult()">🗑️ Clear Result</button>
+                    
+                    <div id="auth-result" class="result"></div>
+                </div>
+            </div>
+
+            <!-- API Tests Tab -->
+            <div id="api-tests" class="tab-content">
+                <div class="section">
+                    <h2>🌐 API Endpoint Tests</h2>
+                    
+                    <div class="form-group">
+                        <label for="api-endpoint">Endpoint:</label>
+                        <select id="api-endpoint">
+                            <option value="/health">Health Check</option>
+                            <option value="/api/teams">Create Team</option>
+                            <option value="/api/teams/public">Public Teams</option>
+                            <option value="/api/teams/join">Join Team</option>
+                            <option value="/api/employee/daily-summary">Daily Summary</option>
+                            <option value="/api/employee/productivity-data">Productivity Data</option>
+                            <option value="/api/activity/track">Track Activity</option>
+                            <option value="/api/subscription/status">Subscription Status</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="api-method">Method:</label>
+                        <select id="api-method">
+                            <option value="GET">GET</option>
+                            <option value="POST">POST</option>
+                            <option value="PUT">PUT</option>
+                            <option value="DELETE">DELETE</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="api-data">Request Data (JSON):</label>
+                        <textarea id="api-data" rows="5" placeholder='{"key": "value"}'></textarea>
+                    </div>
+
+                    <button class="btn" onclick="testAPI()">🚀 Test API</button>
+                    <button class="btn btn-secondary" onclick="clearAPIResult()">🗑️ Clear Result</button>
+                    
+                    <div id="api-result" class="result"></div>
+                </div>
+            </div>
+
+            <!-- Custom Tests Tab -->
+            <div id="custom-tests" class="tab-content">
+                <div class="section">
+                    <h2>🎯 Custom Tests</h2>
+                    
+                    <div class="form-group">
+                        <label for="custom-url">Full URL:</label>
+                        <input type="url" id="custom-url" placeholder="https://productivityflow-backend-496367590729.us-central1.run.app/health" value="https://productivityflow-backend-496367590729.us-central1.run.app">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="custom-path">Path:</label>
+                        <input type="text" id="custom-path" placeholder="/api/auth/login" value="/health">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="custom-method">Method:</label>
+                        <select id="custom-method">
+                            <option value="GET">GET</option>
+                            <option value="POST">POST</option>
+                            <option value="PUT">PUT</option>
+                            <option value="DELETE">DELETE</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="custom-headers">Headers (JSON):</label>
+                        <textarea id="custom-headers" rows="3" placeholder='{"Content-Type": "application/json"}'></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="custom-body">Body (JSON):</label>
+                        <textarea id="custom-body" rows="5" placeholder='{"email": "test@example.com", "password": "password123"}'></textarea>
+                    </div>
+
+                    <button class="btn" onclick="customTest()">🚀 Run Custom Test</button>
+                    <button class="btn btn-secondary" onclick="clearCustomResult()">🗑️ Clear Result</button>
+                    
+                    <div id="custom-result" class="result"></div>
+                </div>
+            </div>
+
+            <!-- Loading Indicator -->
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>Testing...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://productivityflow-backend-496367590729.us-central1.run.app';
+        const LOCAL_BASE = 'http://localhost:5000';
+
+        // Tab functionality
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+
+        // System status check
+        async function checkSystemStatus() {
+            showLoading(true);
+            
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                
+                const backendStatus = document.getElementById('backend-status');
+                const backendText = document.getElementById('backend-text');
+                const databaseStatus = document.getElementById('database-status');
+                const databaseText = document.getElementById('database-text');
+                
+                if (response.ok) {
+                    backendStatus.className = 'status-indicator status-online';
+                    backendText.textContent = 'Online';
+                    
+                    if (data.database === 'connected') {
+                        databaseStatus.className = 'status-indicator status-online';
+                        databaseText.textContent = 'Connected';
+                    } else {
+                        databaseStatus.className = 'status-indicator status-offline';
+                        databaseText.textContent = 'Disconnected';
+                    }
+                } else {
+                    backendStatus.className = 'status-indicator status-offline';
+                    backendText.textContent = 'Offline';
+                    databaseStatus.className = 'status-indicator status-offline';
+                    databaseText.textContent = 'Unknown';
+                }
+            } catch (error) {
+                const backendStatus = document.getElementById('backend-status');
+                const backendText = document.getElementById('backend-text');
+                backendStatus.className = 'status-indicator status-offline';
+                backendText.textContent = 'Connection Failed';
+            }
+            
+            showLoading(false);
+        }
+
+        // Quick tests
+        async function quickTest(testType) {
+            showLoading(true);
+            const resultDiv = document.getElementById('quick-result');
+            
+            try {
+                let response, data;
+                
+                switch(testType) {
+                    case 'health':
+                        response = await fetch(`${API_BASE}/health`);
+                        data = await response.json();
+                        break;
+                        
+                    case 'manager-login':
+                        response = await fetch(`${API_BASE}/api/auth/login`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                email: 'manager@productivityflow.com',
+                                password: 'password123'
+                            })
+                        });
+                        data = await response.json();
+                        break;
+                        
+                    case 'employee-login':
+                        response = await fetch(`${API_BASE}/api/auth/employee-login`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                email: 'employee@productivityflow.com',
+                                password: 'password123'
+                            })
+                        });
+                        data = await response.json();
+                        break;
+                        
+                    case 'register':
+                        response = await fetch(`${API_BASE}/api/auth/register`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                email: `test_${Date.now()}@debug.com`,
+                                password: 'password123',
+                                name: 'Debug User'
+                            })
+                        });
+                        data = await response.json();
+                        break;
+                }
+                
+                resultDiv.className = response.ok ? 'result success' : 'result error';
+                resultDiv.textContent = `Status: ${response.status}\nResponse: ${JSON.stringify(data, null, 2)}`;
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `Error: ${error.message}`;
+            }
+            
+            showLoading(false);
+        }
+
+        // Authentication tests
+        async function testAuth() {
+            showLoading(true);
+            const resultDiv = document.getElementById('auth-result');
+            
+            try {
+                const endpoint = document.getElementById('auth-endpoint').value;
+                const email = document.getElementById('auth-email').value;
+                const password = document.getElementById('auth-password').value;
+                const name = document.getElementById('auth-name').value;
+                
+                const body = { email, password };
+                if (name) body.name = name;
+                
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                
+                const data = await response.json();
+                
+                resultDiv.className = response.ok ? 'result success' : 'result error';
+                resultDiv.textContent = `Status: ${response.status}\nResponse: ${JSON.stringify(data, null, 2)}`;
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `Error: ${error.message}`;
+            }
+            
+            showLoading(false);
+        }
+
+        // API tests
+        async function testAPI() {
+            showLoading(true);
+            const resultDiv = document.getElementById('api-result');
+            
+            try {
+                const endpoint = document.getElementById('api-endpoint').value;
+                const method = document.getElementById('api-method').value;
+                const dataText = document.getElementById('api-data').value;
+                
+                const options = {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' }
+                };
+                
+                if (dataText && method !== 'GET') {
+                    options.body = dataText;
+                }
+                
+                const response = await fetch(`${API_BASE}${endpoint}`, options);
+                const data = await response.json();
+                
+                resultDiv.className = response.ok ? 'result success' : 'result error';
+                resultDiv.textContent = `Status: ${response.status}\nResponse: ${JSON.stringify(data, null, 2)}`;
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `Error: ${error.message}`;
+            }
+            
+            showLoading(false);
+        }
+
+        // Custom tests
+        async function customTest() {
+            showLoading(true);
+            const resultDiv = document.getElementById('custom-result');
+            
+            try {
+                const baseUrl = document.getElementById('custom-url').value;
+                const path = document.getElementById('custom-path').value;
+                const method = document.getElementById('custom-method').value;
+                const headersText = document.getElementById('custom-headers').value;
+                const bodyText = document.getElementById('custom-body').value;
+                
+                const url = `${baseUrl}${path}`;
+                const options = { method: method };
+                
+                if (headersText) {
+                    options.headers = JSON.parse(headersText);
+                }
+                
+                if (bodyText && method !== 'GET') {
+                    options.body = bodyText;
+                }
+                
+                const response = await fetch(url, options);
+                const data = await response.json();
+                
+                resultDiv.className = response.ok ? 'result success' : 'result error';
+                resultDiv.textContent = `Status: ${response.status}\nResponse: ${JSON.stringify(data, null, 2)}`;
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `Error: ${error.message}`;
+            }
+            
+            showLoading(false);
+        }
+
+        // Utility functions
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        function clearAuthResult() {
+            document.getElementById('auth-result').textContent = '';
+            document.getElementById('auth-result').className = 'result';
+        }
+
+        function clearAPIResult() {
+            document.getElementById('api-result').textContent = '';
+            document.getElementById('api-result').className = 'result';
+        }
+
+        function clearCustomResult() {
+            document.getElementById('custom-result').textContent = '';
+            document.getElementById('custom-result').className = 'result';
+        }
+
+        // Initialize on page load
+        window.onload = function() {
+            checkSystemStatus();
+        };
+    </script>
+</body>
+</html> 

@@ -7,7 +7,7 @@ import { Users, Crown, Copy, UserPlus, TrendingUp, TrendingDown, Plus } from 'lu
 import EmployeeSummaryModal from '../components/EmployeeSummaryModal';
 
 // Updated to use the correct backend URL
-const API_URL = "https://my-home-backend-7m6d.onrender.com";
+const API_URL = "https://productivityflow-backend-v3.onrender.com";
 
 export default function TeamManagementPage() {
   const [teams, setTeams] = useState([]);

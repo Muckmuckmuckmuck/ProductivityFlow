@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
  */
 
 // API Configuration
-const API_URL = "https://my-home-backend-7m6d.onrender.com";
+const API_URL = "https://productivityflow-backend-v3.onrender.com";
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
 const RETRY_ATTEMPTS = 3;
 const RETRY_DELAY = 1000; // 1 second

@@ -12,7 +12,7 @@ const Switch = ({ checked, onCheckedChange }) => (
     </button>
 );
 
-const API_URL = "https://my-home-backend-7m6d.onrender.com";
+const API_URL = "https://productivityflow-backend-v3.onrender.com";
 
 class ActivityTracker {
     constructor(session) {

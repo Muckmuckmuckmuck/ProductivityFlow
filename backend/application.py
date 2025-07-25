@@ -203,6 +203,86 @@ def login_user():
         logger.error(f"Login error: {e}")
         return jsonify({'error': 'Login failed'}), 500
 
+@application.route('/api/auth/employee-login', methods=['POST'])
+def employee_login():
+    """Employee login with email and password"""
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        password = data.get('password')
+        
+        if not all([email, password]):
+            return jsonify({'error': 'Missing email or password'}), 400
+        
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            return jsonify({'error': 'Invalid credentials'}), 401
+        
+        if not verify_password(password, user.password_hash):
+            return jsonify({'error': 'Invalid credentials'}), 401
+        
+        # Find the team this user belongs to (for employees created via join team)
+        # For now, we'll use a default team or create a mock response
+        team_id = 'default_team'
+        team_name = 'Default Team'
+        
+        # Try to find team by user's email domain
+        if '@' in user.email and '.local' in user.email:
+            team_id_from_email = user.email.split('@')[1].replace('.local', '')
+            team = Team.query.filter_by(id=team_id_from_email).first()
+            if team:
+                team_id = team.id
+                team_name = team.name
+        
+        token = create_jwt_token(user.id, team_id, 'employee')
+        
+        return jsonify({
+            'success': True,
+            'message': 'Login successful',
+            'token': token,
+            'user': {
+                'id': user.id,
+                'email': user.email,
+                'name': user.name,
+                'team_id': team_id,
+                'team_name': team_name,
+                'role': 'employee'
+            }
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Employee login error: {e}")
+        return jsonify({'error': 'Login failed'}), 500
+
+@application.route('/api/auth/forgot-password', methods=['POST'])
+def forgot_password():
+    """Handle forgot password request"""
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        
+        if not email:
+            return jsonify({'error': 'Email is required'}), 400
+        
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            # Don't reveal if user exists or not for security
+            return jsonify({'message': 'If an account with this email exists, a password reset link has been sent'}), 200
+        
+        # In a real implementation, you would:
+        # 1. Generate a password reset token
+        # 2. Send an email with the reset link
+        # 3. Store the token with expiration
+        
+        # For now, return a success message
+        return jsonify({
+            'message': 'If an account with this email exists, a password reset link has been sent'
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Forgot password error: {e}")
+        return jsonify({'error': 'Failed to process password reset request'}), 500
+
 @application.route('/api/teams', methods=['POST'])
 def create_team():
     """Create a new team"""
@@ -260,6 +340,28 @@ def get_teams():
     except Exception as e:
         logger.error(f"Get teams error: {e}")
         return jsonify({'error': 'Failed to get teams'}), 500
+
+@application.route('/api/teams/public', methods=['GET'])
+def get_public_teams():
+    """Get public teams (for display purposes)"""
+    try:
+        teams = Team.query.all()
+        return jsonify({
+            'teams': [
+                {
+                    'id': team.id,
+                    'name': team.name,
+                    'employee_code': team.employee_code,
+                    'member_count': 0,  # Mock data
+                    'created_at': team.created_at.isoformat()
+                }
+                for team in teams
+            ]
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Get public teams error: {e}")
+        return jsonify({'error': 'Failed to get public teams'}), 500
 
 @application.route('/api/activity/track', methods=['POST'])
 def track_activity():
@@ -533,6 +635,69 @@ def get_team_tasks(team_id):
         logger.error(f"Get team tasks error: {e}")
         return jsonify({'error': 'Failed to get team tasks'}), 500
 
+@application.route('/api/tasks/employee/<user_id>', methods=['GET'])
+def get_employee_tasks(user_id):
+    """Get tasks assigned to specific employee"""
+    try:
+        # Mock employee tasks data
+        tasks = [
+            {
+                'id': 'task_1',
+                'title': 'Complete project documentation',
+                'description': 'Update all project documentation with latest changes',
+                'status': 'in_progress',
+                'priority': 'high',
+                'assigned_to': user_id,
+                'due_date': '2024-01-15',
+                'created_at': '2024-01-10T10:00:00Z',
+                'progress': 75,
+                'team_id': 'team_1',
+                'team_name': 'Development Team'
+            },
+            {
+                'id': 'task_3',
+                'title': 'Bug fix for login issue',
+                'description': 'Fix the authentication token validation bug',
+                'status': 'completed',
+                'priority': 'high',
+                'assigned_to': user_id,
+                'due_date': '2024-01-08',
+                'created_at': '2024-01-07T09:15:00Z',
+                'progress': 100,
+                'team_id': 'team_1',
+                'team_name': 'Development Team'
+            }
+        ]
+        
+        return jsonify({'tasks': tasks}), 200
+        
+    except Exception as e:
+        logger.error(f"Get employee tasks error: {e}")
+        return jsonify({'error': 'Failed to get employee tasks'}), 500
+
+@application.route('/api/tasks/<task_id>/status', methods=['PUT'])
+def update_task_status(task_id):
+    """Update task status"""
+    try:
+        data = request.get_json()
+        new_status = data.get('status')
+        
+        if not new_status:
+            return jsonify({'error': 'Status is required'}), 400
+        
+        # In a real implementation, you would update the database
+        # For now, return success response
+        
+        return jsonify({
+            'message': 'Task status updated successfully',
+            'task_id': task_id,
+            'status': new_status
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Update task status error: {e}")
+        return jsonify({'error': 'Failed to update task status'}), 500
+
 @application.route('/api/teams/<team_id>/analytics', methods=['GET'])
 def get_team_analytics(team_id):
     """Get team analytics"""
@@ -627,6 +792,103 @@ def get_daily_summary():
     except Exception as e:
         logger.error(f"Get daily summary error: {e}")
         return jsonify({'error': 'Failed to get daily summary'}), 500
+
+@application.route('/api/employee/productivity-data', methods=['GET'])
+def get_productivity_data():
+    """Get employee productivity data"""
+    try:
+        # Mock productivity data
+        productivity_data = {
+            'hourly_productivity': [
+                {'hour': '9:00', 'productivity': 85},
+                {'hour': '10:00', 'productivity': 92},
+                {'hour': '11:00', 'productivity': 78},
+                {'hour': '12:00', 'productivity': 45},
+                {'hour': '13:00', 'productivity': 88},
+                {'hour': '14:00', 'productivity': 95},
+                {'hour': '15:00', 'productivity': 82},
+                {'hour': '16:00', 'productivity': 75},
+                {'hour': '17:00', 'productivity': 68}
+            ],
+            'app_breakdown': [
+                {'app': 'VS Code', 'time_minutes': 240, 'productivity': 95},
+                {'app': 'Slack', 'time_minutes': 60, 'productivity': 30},
+                {'app': 'Chrome', 'time_minutes': 120, 'productivity': 70},
+                {'app': 'Terminal', 'time_minutes': 90, 'productivity': 85}
+            ],
+            'weekly_trend': [
+                {'day': 'Monday', 'productivity': 85, 'hours': 8.5},
+                {'day': 'Tuesday', 'productivity': 88, 'hours': 8.8},
+                {'day': 'Wednesday', 'productivity': 82, 'hours': 8.2},
+                {'day': 'Thursday', 'productivity': 90, 'hours': 9.0},
+                {'day': 'Friday', 'productivity': 75, 'hours': 7.5}
+            ]
+        }
+        
+        return jsonify(productivity_data), 200
+        
+    except Exception as e:
+        logger.error(f"Get productivity data error: {e}")
+        return jsonify({'error': 'Failed to get productivity data'}), 500
+
+@application.route('/api/employee/export-daily', methods=['GET'])
+def export_daily_data():
+    """Export daily data for employee"""
+    try:
+        # Mock export data
+        export_data = {
+            'date': datetime.now().strftime('%Y-%m-%d'),
+            'total_hours': 9.7,
+            'productive_hours': 8.5,
+            'unproductive_hours': 1.2,
+            'productivity_score': 87.6,
+            'focus_sessions': 3,
+            'breaks_taken': 2,
+            'apps_used': 8,
+            'websites_visited': 12,
+            'export_format': 'json',
+            'download_url': '/api/employee/export-daily/download'
+        }
+        
+        return jsonify(export_data), 200
+        
+    except Exception as e:
+        logger.error(f"Export daily data error: {e}")
+        return jsonify({'error': 'Failed to export daily data'}), 500
+
+@application.route('/api/employee/generate-daily-report', methods=['POST'])
+def generate_daily_report():
+    """Generate daily report for employee"""
+    try:
+        data = request.get_json()
+        date = data.get('date', datetime.now().strftime('%Y-%m-%d'))
+        
+        # Mock daily report
+        report = {
+            'date': date,
+            'summary': f"Daily productivity report for {date}",
+            'accomplishments': [
+                'Completed project planning phase',
+                'Attended team meeting',
+                'Reviewed code changes',
+                'Updated documentation'
+            ],
+            'focus_time_hours': 8.5,
+            'breaks_taken': 2,
+            'productivity_score': 87.6,
+            'total_time_hours': 9.7,
+            'recommendations': [
+                'Consider taking more frequent breaks',
+                'Focus on high-priority tasks in the morning',
+                'Reduce time spent on social media'
+            ]
+        }
+        
+        return jsonify(report), 200
+        
+    except Exception as e:
+        logger.error(f"Generate daily report error: {e}")
+        return jsonify({'error': 'Failed to generate daily report'}), 500
 
 # Initialize database
 def init_db():

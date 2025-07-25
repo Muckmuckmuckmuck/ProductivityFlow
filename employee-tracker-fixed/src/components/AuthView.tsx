@@ -10,7 +10,7 @@ import {
   Hash
 } from 'lucide-react';
 
-const API_URL = "http://localhost:3001";
+const API_URL = "https://productivityflow-backend-496367590729.us-central1.run.app";
 
 interface AuthViewProps {
   onAuthSuccess: (sessionData: {
