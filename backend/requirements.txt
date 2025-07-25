@@ -1,3 +1,5 @@
+setuptools>=65.0.0
+wheel
 # Requirements for ProductivityFlow Backend
 # Compatible with Python 3.11.7
 Flask==2.3.3
