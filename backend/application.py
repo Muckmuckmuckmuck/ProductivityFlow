@@ -57,7 +57,7 @@ class Team(db.Model):
     name = db.Column(db.String(120), nullable=False)
     employee_code = db.Column(db.String(10), unique=True, nullable=False)
     manager_id = db.Column(db.String(80), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=True)
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -65,7 +65,7 @@ class User(db.Model):
     email = db.Column(db.String(255), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     name = db.Column(db.String(120), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=True)
 
 class Activity(db.Model):
     __tablename__ = 'activities'
@@ -353,7 +353,7 @@ def get_public_teams():
                     'name': team.name,
                     'employee_code': team.employee_code,
                     'member_count': 0,  # Mock data
-                    'created_at': team.created_at.isoformat()
+                    'created_at': team.created_at.isoformat() if team.created_at else None
                 }
                 for team in teams
             ]
