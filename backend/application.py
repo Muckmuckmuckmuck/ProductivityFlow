@@ -57,7 +57,6 @@ class Team(db.Model):
     id = db.Column(db.String(80), primary_key=True)
     name = db.Column(db.String(120), nullable=False)
     employee_code = db.Column(db.String(10), unique=True, nullable=False)
-    manager_id = db.Column(db.String(80), nullable=True)
     # Make created_at optional to handle existing databases
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=True)
 
@@ -296,6 +295,27 @@ def create_team():
     except Exception as e:
         logger.error(f"Create team error: {e}")
         return jsonify({'error': 'Failed to create team'}), 500
+
+@application.route('/api/teams', methods=['GET'])
+def get_teams():
+    """Get all teams"""
+    try:
+        teams = Team.query.all()
+        return jsonify({
+            'teams': [
+                {
+                    'id': team.id,
+                    'name': team.name,
+                    'employee_code': team.employee_code,
+                    'created_at': team.created_at.isoformat() if team.created_at else None
+                }
+                for team in teams
+            ]
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Get teams error: {e}")
+        return jsonify({'error': 'Failed to get teams'}), 500
 
 @application.route('/api/teams/public', methods=['GET'])
 def get_public_teams():
