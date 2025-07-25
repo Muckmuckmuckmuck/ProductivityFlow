@@ -381,20 +381,105 @@ def get_teams():
 
 @application.route('/api/teams/public', methods=['GET'])
 def get_public_teams():
-    """Get public teams (for display purposes)"""
+    """Get public teams with mock member data for Dashboard"""
     try:
         teams = Team.query.all()
-        return jsonify({
-            'teams': [
+        
+        # If no teams exist, create a default team
+        if not teams:
+            default_team = Team(
+                id='default_team',
+                name='Default Team',
+                employee_code='TEAM001',
+                created_at=datetime.utcnow()
+            )
+            db.session.add(default_team)
+            db.session.commit()
+            teams = [default_team]
+        
+        teams_data = []
+        for team in teams:
+            # Mock team data with members
+            mock_members = [
                 {
-                    'id': team.id,
-                    'name': team.name,
-                    'employee_code': team.employee_code,
-                    'member_count': 0,  # Mock data
-                    'created_at': team.created_at.isoformat() if team.created_at else None
+                    'userId': 'user_001',
+                    'name': 'John Doe',
+                    'role': 'Developer',
+                    'department': 'Engineering',
+                    'productiveHours': 6.5,
+                    'unproductiveHours': 1.5,
+                    'totalHours': 8.0,
+                    'productivityScore': 85,
+                    'lastActive': datetime.utcnow().isoformat(),
+                    'status': 'online',
+                    'teamName': team.name,
+                    'isOnline': True,
+                    'currentActivity': 'Coding',
+                    'focusSessions': 4,
+                    'breaksTaken': 2,
+                    'weeklyAverage': 82,
+                    'monthlyAverage': 78
+                },
+                {
+                    'userId': 'user_002',
+                    'name': 'Jane Smith',
+                    'role': 'Designer',
+                    'department': 'Design',
+                    'productiveHours': 7.0,
+                    'unproductiveHours': 1.0,
+                    'totalHours': 8.0,
+                    'productivityScore': 90,
+                    'lastActive': datetime.utcnow().isoformat(),
+                    'status': 'online',
+                    'teamName': team.name,
+                    'isOnline': True,
+                    'currentActivity': 'Design Review',
+                    'focusSessions': 5,
+                    'breaksTaken': 1,
+                    'weeklyAverage': 88,
+                    'monthlyAverage': 85
+                },
+                {
+                    'userId': 'user_003',
+                    'name': 'Mike Johnson',
+                    'role': 'Manager',
+                    'department': 'Management',
+                    'productiveHours': 5.5,
+                    'unproductiveHours': 2.5,
+                    'totalHours': 8.0,
+                    'productivityScore': 70,
+                    'lastActive': datetime.utcnow().isoformat(),
+                    'status': 'away',
+                    'teamName': team.name,
+                    'isOnline': False,
+                    'currentActivity': 'Meeting',
+                    'focusSessions': 3,
+                    'breaksTaken': 3,
+                    'weeklyAverage': 75,
+                    'monthlyAverage': 72
                 }
-                for team in teams
             ]
+            
+            total_productive = sum(m['productiveHours'] for m in mock_members)
+            total_unproductive = sum(m['unproductiveHours'] for m in mock_members)
+            avg_productivity = sum(m['productivityScore'] for m in mock_members) / len(mock_members)
+            active_members = len([m for m in mock_members if m['isOnline']])
+            
+            teams_data.append({
+                'id': team.id,
+                'name': team.name,
+                'employee_code': team.employee_code,
+                'members': mock_members,
+                'totalProductiveHours': total_productive,
+                'totalUnproductiveHours': total_unproductive,
+                'averageProductivity': round(avg_productivity, 1),
+                'activeMembers': active_members,
+                'totalMembers': len(mock_members),
+                'created_at': team.created_at.isoformat() if team.created_at else None
+            })
+        
+        return jsonify({
+            'teams': teams_data
         }), 200
         
     except Exception as e:
@@ -446,6 +531,81 @@ def join_team():
     except Exception as e:
         logger.error(f"Join team error: {e}")
         return jsonify({'error': 'Failed to join team'}), 500
+
+@application.route('/api/teams/<team_id>/members', methods=['GET'])
+def get_team_members(team_id):
+    """Get team members with mock data for now"""
+    try:
+        team = Team.query.filter_by(id=team_id).first()
+        if not team:
+            return jsonify({'error': 'Team not found'}), 404
+        
+        # Mock team members data for now
+        mock_members = [
+            {
+                'userId': 'user_001',
+                'name': 'John Doe',
+                'role': 'Developer',
+                'department': 'Engineering',
+                'productiveHours': 6.5,
+                'unproductiveHours': 1.5,
+                'totalHours': 8.0,
+                'productivityScore': 85,
+                'lastActive': datetime.utcnow().isoformat(),
+                'status': 'online',
+                'isOnline': True,
+                'currentActivity': 'Coding',
+                'focusSessions': 4,
+                'breaksTaken': 2,
+                'weeklyAverage': 82,
+                'monthlyAverage': 78
+            },
+            {
+                'userId': 'user_002',
+                'name': 'Jane Smith',
+                'role': 'Designer',
+                'department': 'Design',
+                'productiveHours': 7.0,
+                'unproductiveHours': 1.0,
+                'totalHours': 8.0,
+                'productivityScore': 90,
+                'lastActive': datetime.utcnow().isoformat(),
+                'status': 'online',
+                'isOnline': True,
+                'currentActivity': 'Design Review',
+                'focusSessions': 5,
+                'breaksTaken': 1,
+                'weeklyAverage': 88,
+                'monthlyAverage': 85
+            },
+            {
+                'userId': 'user_003',
+                'name': 'Mike Johnson',
+                'role': 'Manager',
+                'department': 'Management',
+                'productiveHours': 5.5,
+                'unproductiveHours': 2.5,
+                'totalHours': 8.0,
+                'productivityScore': 70,
+                'lastActive': datetime.utcnow().isoformat(),
+                'status': 'away',
+                'isOnline': False,
+                'currentActivity': 'Meeting',
+                'focusSessions': 3,
+                'breaksTaken': 3,
+                'weeklyAverage': 75,
+                'monthlyAverage': 72
+            }
+        ]
+        
+        return jsonify({
+            'success': True,
+            'members': mock_members
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Get team members error: {e}")
+        return jsonify({'error': 'Failed to get team members'}), 500
 
 # Initialize database
 def init_db():
