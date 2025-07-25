@@ -4,7 +4,7 @@ import { Badge } from '../components/ui/Badge';
 import { CreditCard, Calendar, DollarSign, Users, Loader2, AlertCircle } from 'lucide-react';
 
 // Updated to use the correct backend URL
-const API_URL = "https://productivityflow-backend-496367590729.us-central1.run.app";
+const API_URL = "https://my-home-backend-7m6d.onrender.com";
 
 interface SubscriptionData {
   status: string;

@@ -12,7 +12,7 @@ interface OnboardingViewProps {
   }) => void;
 }
 
-const API_URL = "https://productivityflow-backend-496367590729.us-central1.run.app";
+const API_URL = "https://my-home-backend-7m6d.onrender.com";
 
 export function OnboardingView({ onTeamJoin }: OnboardingViewProps) {
   const [name, setName] = useState("");

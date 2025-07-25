@@ -3,7 +3,7 @@ import { Button } from './ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Building, User, Mail, Lock, Eye, EyeOff, Loader2, LogIn, UserPlus } from 'lucide-react';
 
-const API_URL = "https://productivityflow-backend-496367590729.us-central1.run.app";
+const API_URL = "https://my-home-backend-7m6d.onrender.com";
 
 interface OnboardingViewProps {
   onTeamJoin: (sessionData: {

@@ -7,7 +7,7 @@ import { Users, Crown, Copy, UserPlus, TrendingUp, TrendingDown, Plus, Loader2, 
 import EmployeeSummaryModal from '../components/EmployeeSummaryModal';
 
 // Updated to use the Render backend URL (working)
-const API_URL = "https://productivityflow-backend-496367590729.us-central1.run.app";
+const API_URL = "https://my-home-backend-7m6d.onrender.com";
 
 interface Team {
   id: string;

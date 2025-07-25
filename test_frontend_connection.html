@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend Connection Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .test { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .loading { background-color: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .status { font-weight: bold; margin-bottom: 10px; }
+        input { padding: 8px; margin: 5px; width: 200px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Frontend Connection Test</h1>
+    <p>Testing frontend connection to backend: <strong>https://my-home-backend-7m6d.onrender.com</strong></p>
+    
+    <div class="test">
+        <div class="status">🏥 Backend Health Check</div>
+        <button onclick="testHealth()">Test Health</button>
+        <div id="healthResult"></div>
+    </div>
+
+    <div class="test">
+        <div class="status">🔐 Login Test (Frontend Style)</div>
+        <input type="email" id="loginEmail" placeholder="Email" value="test@example.com">
+        <input type="password" id="loginPassword" placeholder="Password" value="password123">
+        <button onclick="testLogin()">Test Login</button>
+        <div id="loginResult"></div>
+    </div>
+
+    <div class="test">
+        <div class="status">📝 Registration Test (Frontend Style)</div>
+        <input type="email" id="regEmail" placeholder="Email" value="newuser@test.com">
+        <input type="password" id="regPassword" placeholder="Password" value="password123">
+        <input type="text" id="regName" placeholder="Name" value="Test User">
+        <button onclick="testRegistration()">Test Registration</button>
+        <div id="registrationResult"></div>
+    </div>
+
+    <div class="test">
+        <div class="status">🌐 CORS Test</div>
+        <button onclick="testCORS()">Test CORS</button>
+        <div id="corsResult"></div>
+    </div>
+
+    <div class="test">
+        <div class="status">📊 Browser Console Test</div>
+        <button onclick="testConsole()">Open Console & Test</button>
+        <div id="consoleResult"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://my-home-backend-7m6d.onrender.com';
+
+        function showResult(elementId, result, loading = false) {
+            const element = document.getElementById(elementId);
+            const className = loading ? 'loading' : (result.success ? 'success' : 'error');
+            element.className = `test ${className}`;
+            
+            if (loading) {
+                element.innerHTML = '<div class="status">⏳ Loading...</div>';
+            } else {
+                element.innerHTML = `
+                    <div class="status">${result.success ? '✅ Success' : '❌ Error'}: ${result.status} ${result.statusText}</div>
+                    <pre>${JSON.stringify(result.data, null, 2)}</pre>
+                `;
+            }
+        }
+
+        async function makeRequest(endpoint, method = 'GET', body = null) {
+            const url = API_BASE + endpoint;
+            const options = {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                mode: 'cors',
+                credentials: 'omit'
+            };
+            
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+
+            console.log('🌐 Making request to:', url);
+            console.log('📤 Request options:', options);
+
+            try {
+                const response = await fetch(url, options);
+                console.log('📥 Response status:', response.status);
+                console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
+                
+                const data = await response.text();
+                console.log('📥 Response data:', data);
+                
+                let result;
+                try {
+                    result = JSON.parse(data);
+                } catch {
+                    result = data;
+                }
+
+                return {
+                    status: response.status,
+                    statusText: response.statusText,
+                    data: result,
+                    success: response.status >= 200 && response.status < 300
+                };
+            } catch (error) {
+                console.error('❌ Request error:', error);
+                return {
+                    status: 0,
+                    statusText: 'Network Error',
+                    data: error.message,
+                    success: false
+                };
+            }
+        }
+
+        async function testHealth() {
+            showResult('healthResult', {}, true);
+            const result = await makeRequest('/health');
+            showResult('healthResult', result);
+        }
+
+        async function testLogin() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            showResult('loginResult', {}, true);
+            const result = await makeRequest('/api/auth/login', 'POST', {
+                email: email,
+                password: password
+            });
+            showResult('loginResult', result);
+        }
+
+        async function testRegistration() {
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            const name = document.getElementById('regName').value;
+            
+            showResult('registrationResult', {}, true);
+            const result = await makeRequest('/api/auth/register', 'POST', {
+                email: email,
+                password: password,
+                name: name
+            });
+            showResult('registrationResult', result);
+        }
+
+        async function testCORS() {
+            showResult('corsResult', {}, true);
+            
+            // Test preflight request
+            try {
+                const response = await fetch(API_BASE + '/health', {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Origin': window.location.origin,
+                        'Access-Control-Request-Method': 'GET',
+                        'Access-Control-Request-Headers': 'Content-Type'
+                    }
+                });
+                
+                const result = {
+                    status: response.status,
+                    statusText: response.statusText,
+                    data: {
+                        corsHeaders: {
+                            'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin'),
+                            'Access-Control-Allow-Methods': response.headers.get('Access-Control-Allow-Methods'),
+                            'Access-Control-Allow-Headers': response.headers.get('Access-Control-Allow-Headers')
+                        }
+                    },
+                    success: response.status === 200
+                };
+                
+                showResult('corsResult', result);
+            } catch (error) {
+                showResult('corsResult', {
+                    status: 0,
+                    statusText: 'CORS Error',
+                    data: error.message,
+                    success: false
+                });
+            }
+        }
+
+        function testConsole() {
+            document.getElementById('consoleResult').innerHTML = `
+                <div class="status">🔍 Console Test</div>
+                <p>1. Open browser console (F12 or Cmd+Option+I)</p>
+                <p>2. Click the buttons above to see detailed logs</p>
+                <p>3. Check for any CORS or network errors</p>
+                <p>4. Look for request/response details in console</p>
+            `;
+            
+            // Auto-run health check
+            testHealth();
+        }
+
+        // Auto-run health check on load
+        window.onload = function() {
+            testHealth();
+        };
+    </script>
+</body>
+</html> 
