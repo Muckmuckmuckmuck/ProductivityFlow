@@ -118,7 +118,8 @@ def verify_jwt_token(token):
 def health_check():
     """Health check endpoint"""
     try:
-        db.session.execute('SELECT 1')
+        from sqlalchemy import text
+        db.session.execute(text('SELECT 1'))
         db_status = "connected"
     except Exception as e:
         logger.error(f"Database connection failed: {e}")
@@ -126,7 +127,7 @@ def health_check():
     
     return jsonify({
         'status': 'healthy',
-        'timestamp': datetime.utcnow().isoformat(),
+        'timestamp': datetime.now(datetime.UTC).isoformat(),
         'database': db_status
     })
 
