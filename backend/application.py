@@ -6,7 +6,7 @@ ProductivityFlow Backend - Minimal Working Version
 import os
 import sys
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
@@ -127,7 +127,7 @@ def health_check():
     
     return jsonify({
         'status': 'healthy',
-        'timestamp': datetime.now(datetime.UTC).isoformat(),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
         'database': db_status
     })
 
