@@ -17,7 +17,7 @@ const Input = ({ icon, ...props }) => {
 };
 
 // Updated to use the correct backend URL
-const API_URL = "https://productivityflow-backend-v3.onrender.com";
+const API_URL = "https://my-home-backend-7m6d.onrender.com";
 const VERSION = "2.1.1"; // Version indicator for debugging - UPDATED TO FORCE DEPLOYMENT
 
 export default function EmployeeTracker({ onTeamJoin }) {

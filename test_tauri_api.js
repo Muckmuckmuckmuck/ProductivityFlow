@@ -14,11 +14,11 @@ async function testTauriAPI() {
         role: 'manager'
     };
     
-    console.log('📤 Making request to:', 'https://productivityflow-backend-v3.onrender.com/api/auth/register');
+    console.log('📤 Making request to:', 'https://my-home-backend-7m6d.onrender.com/api/auth/register');
     console.log('📤 Request data:', { ...testData, password: '***' });
     
     try {
-        const response = await fetch('https://productivityflow-backend-v3.onrender.com/api/auth/register', {
+        const response = await fetch('https://my-home-backend-7m6d.onrender.com/api/auth/register', {
             method: 'POST',
             headers: {
                 'Accept': 'application/json',
@@ -60,7 +60,7 @@ async function testLoginAPI() {
     };
     
     try {
-        const response = await fetch('https://productivityflow-backend-v3.onrender.com/api/auth/login', {
+        const response = await fetch('https://my-home-backend-7m6d.onrender.com/api/auth/login', {
             method: 'POST',
             headers: {
                 'Accept': 'application/json',

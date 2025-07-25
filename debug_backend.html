@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProductivityFlow Backend Debug Interface</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .status-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-online { background-color: #4CAF50; }
+        .status-offline { background-color: #f44336; }
+        .status-loading { background-color: #ff9800; }
+        
+        .test-section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section h3 {
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success { border-left: 4px solid #4CAF50; }
+        .error { border-left: 4px solid #f44336; }
+        .info { border-left: 4px solid #2196F3; }
+        
+        .credentials {
+            background: #e3f2fd;
+            border: 1px solid #2196F3;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .credentials h4 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+        .credential-item {
+            margin-bottom: 5px;
+        }
+        
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .quick-action {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .quick-action:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 ProductivityFlow Backend Debug Interface</h1>
+        <p>Test all backend endpoints and functionality</p>
+    </div>
+
+    <div class="status-card">
+        <h3><span class="status-indicator status-loading" id="statusIndicator"></span>Backend Status</h3>
+        <div id="backendStatus">Checking...</div>
+    </div>
+
+    <div class="credentials">
+        <h4>🔑 Test Credentials</h4>
+        <div class="credential-item"><strong>Manager:</strong> manager@productivityflow.com / password123</div>
+        <div class="credential-item"><strong>Employee:</strong> employee@productivityflow.com / password123</div>
+        <div class="credential-item"><strong>Test User:</strong> test@example.com / password123</div>
+    </div>
+
+    <div class="quick-actions">
+        <div class="quick-action" onclick="testHealth()">
+            <h4>🏥 Health Check</h4>
+            <p>Test backend health</p>
+        </div>
+        <div class="quick-action" onclick="testLogin()">
+            <h4>🔐 Test Login</h4>
+            <p>Test user authentication</p>
+        </div>
+        <div class="quick-action" onclick="testTeams()">
+            <h4>👥 Test Teams</h4>
+            <p>Test team endpoints</p>
+        </div>
+        <div class="quick-action" onclick="testRegistration()">
+            <h4>📝 Test Registration</h4>
+            <p>Test user registration</p>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔧 Manual API Testing</h3>
+        
+        <div class="form-group">
+            <label for="endpoint">Endpoint:</label>
+            <input type="text" id="endpoint" value="/health" placeholder="Enter endpoint (e.g., /api/auth/login)">
+        </div>
+        
+        <div class="form-group">
+            <label for="method">Method:</label>
+            <select id="method">
+                <option value="GET">GET</option>
+                <option value="POST">POST</option>
+                <option value="PUT">PUT</option>
+                <option value="DELETE">DELETE</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="requestBody">Request Body (JSON):</label>
+            <textarea id="requestBody" rows="4" placeholder='{"email": "test@example.com", "password": "password123"}'></textarea>
+        </div>
+        
+        <button onclick="testEndpoint()">🚀 Test Endpoint</button>
+        <button onclick="clearResults()">🗑️ Clear Results</button>
+        
+        <div id="manualResult" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>👤 User Management</h3>
+        
+        <div class="form-group">
+            <label for="regEmail">Email:</label>
+            <input type="email" id="regEmail" placeholder="user@example.com">
+        </div>
+        
+        <div class="form-group">
+            <label for="regPassword">Password:</label>
+            <input type="password" id="regPassword" placeholder="password123">
+        </div>
+        
+        <div class="form-group">
+            <label for="regName">Name:</label>
+            <input type="text" id="regName" placeholder="Test User">
+        </div>
+        
+        <button onclick="registerUser()">📝 Register User</button>
+        <button onclick="loginUser()">🔐 Login User</button>
+        <button onclick="testEmployeeLogin()">👷 Employee Login</button>
+        
+        <div id="userResult" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>👥 Team Management</h3>
+        
+        <div class="form-group">
+            <label for="teamName">Team Name:</label>
+            <input type="text" id="teamName" placeholder="My Team">
+        </div>
+        
+        <div class="form-group">
+            <label for="userName">User Name:</label>
+            <input type="text" id="userName" placeholder="Team Manager">
+        </div>
+        
+        <button onclick="createTeam()">➕ Create Team</button>
+        <button onclick="getTeams()">📋 Get Teams</button>
+        <button onclick="getPublicTeams()">🌐 Get Public Teams</button>
+        
+        <div id="teamResult" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 Test Results</h3>
+        <button onclick="runAllTests()">🧪 Run All Tests</button>
+        <button onclick="clearAllResults()">🗑️ Clear All</button>
+        <div id="allResults" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://my-home-backend-7m6d.onrender.com';
+        let testResults = [];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            testHealth();
+        });
+
+        function updateStatusIndicator(status) {
+            const indicator = document.getElementById('statusIndicator');
+            indicator.className = 'status-indicator status-' + status;
+        }
+
+        function showResult(elementId, data, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = 'result ' + type;
+            element.textContent = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
+        }
+
+        async function makeRequest(endpoint, method = 'GET', body = null) {
+            const url = API_BASE + endpoint;
+            const options = {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            };
+            
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+
+            try {
+                const response = await fetch(url, options);
+                const data = await response.text();
+                
+                let result;
+                try {
+                    result = JSON.parse(data);
+                } catch {
+                    result = data;
+                }
+
+                return {
+                    status: response.status,
+                    statusText: response.statusText,
+                    data: result,
+                    headers: Object.fromEntries(response.headers.entries())
+                };
+            } catch (error) {
+                return {
+                    status: 0,
+                    statusText: 'Network Error',
+                    data: error.message,
+                    headers: {}
+                };
+            }
+        }
+
+        async function testHealth() {
+            updateStatusIndicator('loading');
+            const result = await makeRequest('/health');
+            
+            if (result.status === 200) {
+                updateStatusIndicator('online');
+                document.getElementById('backendStatus').innerHTML = `
+                    <strong>✅ Backend is Online</strong><br>
+                    Status: ${result.data.status}<br>
+                    Database: ${result.data.database}<br>
+                    Timestamp: ${result.data.timestamp}
+                `;
+            } else {
+                updateStatusIndicator('offline');
+                document.getElementById('backendStatus').innerHTML = `
+                    <strong>❌ Backend is Offline</strong><br>
+                    Status: ${result.status} ${result.statusText}<br>
+                    Error: ${result.data}
+                `;
+            }
+        }
+
+        async function testEndpoint() {
+            const endpoint = document.getElementById('endpoint').value;
+            const method = document.getElementById('method').value;
+            const bodyText = document.getElementById('requestBody').value;
+            
+            let body = null;
+            if (bodyText.trim()) {
+                try {
+                    body = JSON.parse(bodyText);
+                } catch (e) {
+                    showResult('manualResult', 'Invalid JSON in request body', 'error');
+                    return;
+                }
+            }
+
+            const result = await makeRequest(endpoint, method, body);
+            showResult('manualResult', result, result.status >= 200 && result.status < 300 ? 'success' : 'error');
+        }
+
+        async function registerUser() {
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            const name = document.getElementById('regName').value;
+
+            if (!email || !password || !name) {
+                showResult('userResult', 'Please fill in all fields', 'error');
+                return;
+            }
+
+            const result = await makeRequest('/api/auth/register', 'POST', {
+                email: email,
+                password: password,
+                name: name
+            });
+
+            showResult('userResult', result, result.status === 201 ? 'success' : 'error');
+        }
+
+        async function loginUser() {
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+
+            if (!email || !password) {
+                showResult('userResult', 'Please enter email and password', 'error');
+                return;
+            }
+
+            const result = await makeRequest('/api/auth/login', 'POST', {
+                email: email,
+                password: password
+            });
+
+            showResult('userResult', result, result.status === 200 ? 'success' : 'error');
+        }
+
+        async function testEmployeeLogin() {
+            const result = await makeRequest('/api/auth/employee-login', 'POST', {
+                email: 'employee@productivityflow.com',
+                password: 'password123'
+            });
+
+            showResult('userResult', result, result.status === 200 ? 'success' : 'error');
+        }
+
+        async function createTeam() {
+            const teamName = document.getElementById('teamName').value;
+            const userName = document.getElementById('userName').value;
+
+            if (!teamName || !userName) {
+                showResult('teamResult', 'Please fill in team name and user name', 'error');
+                return;
+            }
+
+            const result = await makeRequest('/api/teams', 'POST', {
+                name: teamName,
+                user_name: userName,
+                role: 'manager'
+            });
+
+            showResult('teamResult', result, result.status === 201 ? 'success' : 'error');
+        }
+
+        async function getTeams() {
+            const result = await makeRequest('/api/teams');
+            showResult('teamResult', result, result.status === 200 ? 'success' : 'error');
+        }
+
+        async function getPublicTeams() {
+            const result = await makeRequest('/api/teams/public');
+            showResult('teamResult', result, result.status === 200 ? 'success' : 'error');
+        }
+
+        async function runAllTests() {
+            testResults = [];
+            const allResultsDiv = document.getElementById('allResults');
+            allResultsDiv.style.display = 'block';
+            allResultsDiv.textContent = 'Running all tests...\n';
+
+            const tests = [
+                { name: 'Health Check', func: () => makeRequest('/health') },
+                { name: 'User Registration', func: () => makeRequest('/api/auth/register', 'POST', { email: 'debug@test.com', password: 'password123', name: 'Debug User' }) },
+                { name: 'User Login', func: () => makeRequest('/api/auth/login', 'POST', { email: 'test@example.com', password: 'password123' }) },
+                { name: 'Employee Login', func: () => makeRequest('/api/auth/employee-login', 'POST', { email: 'employee@productivityflow.com', password: 'password123' }) },
+                { name: 'Get Teams', func: () => makeRequest('/api/teams') },
+                { name: 'Get Public Teams', func: () => makeRequest('/api/teams/public') },
+                { name: 'Create Team', func: () => makeRequest('/api/teams', 'POST', { name: 'Debug Team', user_name: 'Debug Manager', role: 'manager' }) }
+            ];
+
+            for (const test of tests) {
+                allResultsDiv.textContent += `\n🧪 ${test.name}...\n`;
+                try {
+                    const result = await test.func();
+                    const status = result.status >= 200 && result.status < 300 ? '✅' : '❌';
+                    allResultsDiv.textContent += `${status} ${test.name}: ${result.status} ${result.statusText}\n`;
+                    if (result.status !== 200 && result.status !== 201) {
+                        allResultsDiv.textContent += `   Error: ${JSON.stringify(result.data, null, 2)}\n`;
+                    }
+                    testResults.push({ name: test.name, result: result });
+                } catch (error) {
+                    allResultsDiv.textContent += `❌ ${test.name}: Error - ${error.message}\n`;
+                    testResults.push({ name: test.name, error: error.message });
+                }
+            }
+
+            allResultsDiv.textContent += '\n🎉 All tests completed!\n';
+            allResultsDiv.className = 'result info';
+        }
+
+        function clearResults() {
+            document.getElementById('manualResult').style.display = 'none';
+        }
+
+        function clearAllResults() {
+            document.getElementById('allResults').style.display = 'none';
+            document.getElementById('userResult').style.display = 'none';
+            document.getElementById('teamResult').style.display = 'none';
+        }
+
+        // Quick action functions
+        function testLogin() {
+            document.getElementById('regEmail').value = 'test@example.com';
+            document.getElementById('regPassword').value = 'password123';
+            loginUser();
+        }
+
+        function testTeams() {
+            getTeams();
+        }
+
+        function testRegistration() {
+            document.getElementById('regEmail').value = 'newuser@test.com';
+            document.getElementById('regPassword').value = 'password123';
+            document.getElementById('regName').value = 'New Test User';
+            registerUser();
+        }
+    </script>
+</body>
+</html> 

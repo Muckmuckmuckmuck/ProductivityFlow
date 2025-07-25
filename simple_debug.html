@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Backend Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .test { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .loading { background-color: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .status { font-weight: bold; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Backend Debug Interface</h1>
+    <p><strong>Backend URL:</strong> https://my-home-backend-7m6d.onrender.com</p>
+    
+    <div class="test">
+        <div class="status">🏥 Health Check</div>
+        <button onclick="testHealth()">Test Health</button>
+        <div id="healthResult"></div>
+    </div>
+
+    <div class="test">
+        <div class="status">🔐 Login Test</div>
+        <button onclick="testLogin()">Test Login</button>
+        <div id="loginResult"></div>
+    </div>
+
+    <div class="test">
+        <div class="status">👥 Teams Test</div>
+        <button onclick="testTeams()">Get Teams</button>
+        <button onclick="testPublicTeams()">Get Public Teams</button>
+        <div id="teamsResult"></div>
+    </div>
+
+    <div class="test">
+        <div class="status">➕ Create Team Test</div>
+        <button onclick="testCreateTeam()">Create Team</button>
+        <div id="createTeamResult"></div>
+    </div>
+
+    <div class="test">
+        <div class="status">📝 Registration Test</div>
+        <button onclick="testRegistration()">Register User</button>
+        <div id="registrationResult"></div>
+    </div>
+
+    <div class="test">
+        <div class="status">🧪 Run All Tests</div>
+        <button onclick="runAllTests()">Run All Tests</button>
+        <div id="allTestsResult"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://my-home-backend-7m6d.onrender.com';
+
+        async function makeRequest(endpoint, method = 'GET', body = null) {
+            const url = API_BASE + endpoint;
+            const options = {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            };
+            
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+
+            try {
+                const response = await fetch(url, options);
+                const data = await response.text();
+                
+                let result;
+                try {
+                    result = JSON.parse(data);
+                } catch {
+                    result = data;
+                }
+
+                return {
+                    status: response.status,
+                    statusText: response.statusText,
+                    data: result,
+                    success: response.status >= 200 && response.status < 300
+                };
+            } catch (error) {
+                return {
+                    status: 0,
+                    statusText: 'Network Error',
+                    data: error.message,
+                    success: false
+                };
+            }
+        }
+
+        function showResult(elementId, result, loading = false) {
+            const element = document.getElementById(elementId);
+            const className = loading ? 'loading' : (result.success ? 'success' : 'error');
+            element.className = `test ${className}`;
+            
+            if (loading) {
+                element.innerHTML = '<div class="status">⏳ Loading...</div>';
+            } else {
+                element.innerHTML = `
+                    <div class="status">${result.success ? '✅ Success' : '❌ Error'}: ${result.status} ${result.statusText}</div>
+                    <pre>${JSON.stringify(result.data, null, 2)}</pre>
+                `;
+            }
+        }
+
+        async function testHealth() {
+            showResult('healthResult', {}, true);
+            const result = await makeRequest('/health');
+            showResult('healthResult', result);
+        }
+
+        async function testLogin() {
+            showResult('loginResult', {}, true);
+            const result = await makeRequest('/api/auth/login', 'POST', {
+                email: 'test@example.com',
+                password: 'password123'
+            });
+            showResult('loginResult', result);
+        }
+
+        async function testTeams() {
+            showResult('teamsResult', {}, true);
+            const result = await makeRequest('/api/teams');
+            showResult('teamsResult', result);
+        }
+
+        async function testPublicTeams() {
+            showResult('teamsResult', {}, true);
+            const result = await makeRequest('/api/teams/public');
+            showResult('teamsResult', result);
+        }
+
+        async function testCreateTeam() {
+            showResult('createTeamResult', {}, true);
+            const result = await makeRequest('/api/teams', 'POST', {
+                name: 'Debug Team ' + Date.now(),
+                user_name: 'Debug User',
+                role: 'manager'
+            });
+            showResult('createTeamResult', result);
+        }
+
+        async function testRegistration() {
+            showResult('registrationResult', {}, true);
+            const result = await makeRequest('/api/auth/register', 'POST', {
+                email: 'debug' + Date.now() + '@test.com',
+                password: 'password123',
+                name: 'Debug User'
+            });
+            showResult('registrationResult', result);
+        }
+
+        async function runAllTests() {
+            const allTestsDiv = document.getElementById('allTestsResult');
+            allTestsDiv.innerHTML = '<div class="status">🧪 Running all tests...</div>';
+            allTestsDiv.className = 'test loading';
+
+            const tests = [
+                { name: 'Health Check', func: () => makeRequest('/health') },
+                { name: 'User Login', func: () => makeRequest('/api/auth/login', 'POST', { email: 'test@example.com', password: 'password123' }) },
+                { name: 'Get Teams', func: () => makeRequest('/api/teams') },
+                { name: 'Get Public Teams', func: () => makeRequest('/api/teams/public') },
+                { name: 'Create Team', func: () => makeRequest('/api/teams', 'POST', { name: 'All Tests Team', user_name: 'Test User', role: 'manager' }) },
+                { name: 'User Registration', func: () => makeRequest('/api/auth/register', 'POST', { email: 'alltests' + Date.now() + '@test.com', password: 'password123', name: 'All Tests User' }) }
+            ];
+
+            let results = [];
+            for (const test of tests) {
+                try {
+                    const result = await test.func();
+                    results.push({ name: test.name, ...result });
+                } catch (error) {
+                    results.push({ name: test.name, success: false, error: error.message });
+                }
+            }
+
+            const successCount = results.filter(r => r.success).length;
+            const totalCount = results.length;
+            
+            let html = `<div class="status">🎉 All tests completed! ${successCount}/${totalCount} passed</div>`;
+            
+            results.forEach(result => {
+                const status = result.success ? '✅' : '❌';
+                html += `<div><strong>${status} ${result.name}:</strong> ${result.status || 'Error'} ${result.statusText || ''}</div>`;
+            });
+
+            allTestsDiv.innerHTML = html;
+            allTestsDiv.className = `test ${successCount === totalCount ? 'success' : 'error'}`;
+        }
+
+        // Auto-run health check on load
+        window.onload = function() {
+            testHealth();
+        };
+    </script>
+</body>
+</html> 

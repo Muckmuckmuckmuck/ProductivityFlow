@@ -8,7 +8,7 @@ import json
 import sys
 
 # Backend URL
-API_URL = "https://productivityflow-backend-v3.onrender.com"
+API_URL = "https://my-home-backend-7m6d.onrender.com"
 
 def test_health():
     """Test health endpoint"""
