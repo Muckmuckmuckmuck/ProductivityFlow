@@ -1,21 +1,29 @@
-setuptools>=65.0.0
-wheel
-# Requirements for ProductivityFlow Backend
-# Compatible with Python 3.13.4
 Flask==2.3.3
 Flask-SQLAlchemy==3.0.5
 Flask-CORS==4.0.0
-Flask-Mail==0.9.1
 Flask-Limiter==3.5.0
 bcrypt==4.0.1
 PyJWT==2.8.0
 cryptography==41.0.7
-python-dotenv==1.0.0
-psycopg[binary]==3.2.9
-gunicorn==21.2.0
+sentry-sdk[flask]==1.38.0
+psycopg2-binary==2.9.7
 redis==5.0.1
-stripe==7.8.0
-anthropic==0.7.8
-APScheduler==3.10.4
-numpy>=1.26.0
+
+# AI and Analytics Dependencies
+numpy==1.24.3
+pandas==2.0.3
+scikit-learn==1.3.0
+scipy==1.11.1
+matplotlib==3.7.2
+seaborn==0.12.2
+
+# Enhanced Data Processing
+asyncio==3.4.3
+aiohttp==3.8.5
+concurrent-futures==3.1.1
+
+# Additional Utilities
+python-dateutil==2.8.2
+pytz==2023.3
 requests==2.31.0
+urllib3==2.0.4
