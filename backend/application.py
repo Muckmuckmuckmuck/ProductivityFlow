@@ -8,9 +8,10 @@ import os
 import logging
 import random
 import string
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import text
 from flask_cors import CORS
 import bcrypt
 import jwt
@@ -64,7 +65,7 @@ class Activity(db.Model):
 
 # Utility functions
 def generate_id(prefix):
-    timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+    timestamp = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
     random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
     return f"{prefix}_{timestamp}_{random_suffix}"
 
@@ -85,8 +86,8 @@ def create_jwt_token(user_id, team_id, role):
         'user_id': user_id,
         'team_id': team_id,
         'role': role,
-        'exp': datetime.utcnow() + timedelta(hours=24),
-        'iat': datetime.utcnow()
+        'exp': datetime.now(timezone.utc) + timedelta(hours=24),
+        'iat': datetime.now(timezone.utc)
     }
     return jwt.encode(payload, application.config['JWT_SECRET_KEY'], algorithm='HS256')
 
@@ -94,7 +95,7 @@ def create_jwt_token(user_id, team_id, role):
 @application.route('/health', methods=['GET'])
 def health_check():
     try:
-        db.session.execute('SELECT 1')
+        db.session.execute(text('SELECT 1'))
         database_status = "connected"
     except Exception as e:
         logger.error(f"Database connection failed: {e}")
@@ -102,7 +103,7 @@ def health_check():
     
     return jsonify({
         'status': 'healthy',
-        'timestamp': datetime.utcnow().isoformat(),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
         'version': '3.2.1',
         'environment': 'production',
         'database': database_status,
