@@ -639,7 +639,57 @@ def get_daily_summary():
 def init_db():
     try:
         with application.app_context():
+            # Create tables
             db.create_all()
+            
+            # Handle schema migrations
+            try:
+                from sqlalchemy import text
+                
+                # Check if manager_code column exists in teams table
+                result = db.session.execute(text("PRAGMA table_info(teams)"))
+                columns = [row[1] for row in result.fetchall()]
+                
+                # Add manager_code column if it doesn't exist
+                if 'manager_code' not in columns:
+                    logger.info("Adding manager_code column to teams table...")
+                    db.session.execute(text("ALTER TABLE teams ADD COLUMN manager_code VARCHAR(10)"))
+                    db.session.commit()
+                    logger.info("✅ manager_code column added")
+                
+                # Check if team_id column exists in users table
+                result = db.session.execute(text("PRAGMA table_info(users)"))
+                columns = [row[1] for row in result.fetchall()]
+                
+                # Add team_id column if it doesn't exist
+                if 'team_id' not in columns:
+                    logger.info("Adding team_id column to users table...")
+                    db.session.execute(text("ALTER TABLE users ADD COLUMN team_id VARCHAR(80)"))
+                    db.session.commit()
+                    logger.info("✅ team_id column added")
+                
+                # Add role column if it doesn't exist
+                if 'role' not in columns:
+                    logger.info("Adding role column to users table...")
+                    db.session.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(50) DEFAULT 'employee'"))
+                    db.session.commit()
+                    logger.info("✅ role column added")
+                
+                # Add employee_code column if it doesn't exist
+                result = db.session.execute(text("PRAGMA table_info(teams)"))
+                columns = [row[1] for row in result.fetchall()]
+                
+                if 'employee_code' not in columns:
+                    logger.info("Adding employee_code column to teams table...")
+                    db.session.execute(text("ALTER TABLE teams ADD COLUMN employee_code VARCHAR(10)"))
+                    db.session.commit()
+                    logger.info("✅ employee_code column added")
+                
+                logger.info("✅ Database schema migration completed")
+                
+            except Exception as migration_error:
+                logger.warning(f"Schema migration warning (non-critical): {migration_error}")
+            
             logger.info("✅ Database tables created successfully")
     except Exception as e:
         logger.error(f"❌ Database initialization failed: {e}")
