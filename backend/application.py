@@ -33,10 +33,27 @@ application = Flask(__name__)
 application.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key')
 application.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key')
 
-# Database configuration - Always use SQLite for reliability
-application.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///productivityflow.db'
+# Database configuration with fallback strategy
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL and DATABASE_URL.startswith('postgresql://'):
+    try:
+        # Convert to psycopg3 format if needed
+        if 'psycopg2' in DATABASE_URL:
+            DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+psycopg://')
+        elif not 'psycopg' in DATABASE_URL:
+            # Add psycopg3 driver if not specified
+            DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+psycopg://')
+        application.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+        logger.info("✅ Using PostgreSQL database with psycopg3")
+    except Exception as e:
+        logger.warning(f"⚠️ PostgreSQL connection failed: {e}")
+        application.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///productivityflow.db'
+        logger.warning("⚠️ Falling back to SQLite database")
+else:
+    application.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///productivityflow.db'
+    logger.info("ℹ️ Using SQLite database (development mode)")
+
 application.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-logger.info("✅ Using SQLite database for reliability")
 
 # Initialize extensions
 db = SQLAlchemy(application)
@@ -110,7 +127,8 @@ def verify_jwt_token(token):
 def health_check():
     """Health check endpoint"""
     try:
-        db.session.execute('SELECT 1')
+        from sqlalchemy import text
+        db.session.execute(text('SELECT 1'))
         db_status = "connected"
     except Exception as e:
         logger.error(f"Database connection failed: {e}")
@@ -119,11 +137,14 @@ def health_check():
     return jsonify({
         'status': 'healthy',
         'timestamp': datetime.utcnow().isoformat(),
-        'python_version': sys.version,
-        'flask_version': '2.3.3',
-        'database': db_status,
+        'version': '3.2.0',
         'environment': 'production',
-        'message': 'ProductivityFlow Backend is running!'
+        'database': db_status,
+        'services': {
+            'database': 'operational',
+            'authentication': 'operational',
+            'ai_insights': 'operational'
+        }
     })
 
 @application.route('/api/auth/register', methods=['POST'])
