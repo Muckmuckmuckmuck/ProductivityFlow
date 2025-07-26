@@ -137,7 +137,7 @@ def health_check():
     return jsonify({
         'status': 'healthy',
         'timestamp': datetime.utcnow().isoformat(),
-        'version': '3.2.0',
+        'version': '3.2.1',
         'environment': 'production',
         'database': db_status,
         'services': {
