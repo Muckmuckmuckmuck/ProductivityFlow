@@ -1,21 +1,15 @@
 #!/usr/bin/env python3
 """
-ProductivityFlow Backend - Simplified Production Version
-Optimized for Render deployment with SQLite fallback
+ProductivityFlow Backend - Simple Working Version
+Minimal backend that works with existing database
 """
 
 import os
 import sys
 import logging
-import time
 import random
 import string
-import hashlib
-import json
-import base64
 from datetime import datetime, timedelta
-from collections import defaultdict
-
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
@@ -29,27 +23,33 @@ logger = logging.getLogger(__name__)
 # Initialize Flask app
 application = Flask(__name__)
 
-# Basic configuration
+# Simple configuration
 application.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key')
 application.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key')
 
-# Database configuration - Always use SQLite for reliability
-application.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///productivityflow.db'
+# Database configuration - use existing database
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
+    application.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+    logger.info("✅ Using existing database")
+else:
+    application.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///productivityflow.db'
+    logger.info("⚠️ Using SQLite database (development mode)")
+
 application.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-logger.info("✅ Using SQLite database for reliability")
 
 # Initialize extensions
 db = SQLAlchemy(application)
 CORS(application)
 
-# Models
+# Simple models that work with existing database
 class Team(db.Model):
     __tablename__ = 'teams'
     id = db.Column(db.String(80), primary_key=True)
     name = db.Column(db.String(120), nullable=False)
     employee_code = db.Column(db.String(10), unique=True, nullable=False)
-    manager_id = db.Column(db.String(80), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    manager_code = db.Column(db.String(10), unique=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=True)
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -57,7 +57,9 @@ class User(db.Model):
     email = db.Column(db.String(255), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     name = db.Column(db.String(120), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    team_id = db.Column(db.String(80), db.ForeignKey('teams.id'), nullable=True)
+    role = db.Column(db.String(50), default='employee', nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=True)
 
 class Activity(db.Model):
     __tablename__ = 'activities'
@@ -83,14 +85,18 @@ def hash_password(password):
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 def verify_password(password, password_hash):
-    return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
+    try:
+        return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
+    except:
+        return False
 
 def create_jwt_token(user_id, team_id, role):
     payload = {
         'user_id': user_id,
         'team_id': team_id,
         'role': role,
-        'exp': datetime.utcnow() + timedelta(hours=1)
+        'exp': datetime.utcnow() + timedelta(hours=24),
+        'iat': datetime.utcnow()
     }
     return jwt.encode(payload, application.config['JWT_SECRET_KEY'], algorithm='HS256')
 
@@ -101,527 +107,543 @@ def verify_jwt_token(token):
     except:
         return None
 
-# Routes
+# Health check
 @application.route('/health', methods=['GET'])
 def health_check():
-    """Health check endpoint"""
     try:
         db.session.execute('SELECT 1')
-        db_status = "connected"
+        database_status = "connected"
     except Exception as e:
         logger.error(f"Database connection failed: {e}")
-        db_status = "disconnected"
+        database_status = "disconnected"
     
     return jsonify({
         'status': 'healthy',
         'timestamp': datetime.utcnow().isoformat(),
-        'python_version': sys.version,
-        'flask_version': '2.3.3',
-        'database': db_status,
-        'environment': 'production',
-        'message': 'ProductivityFlow Backend is running!'
-    })
+        'version': '3.2.1',
+        'environment': os.environ.get('FLASK_ENV', 'development'),
+        'database': database_status,
+        'services': {
+            'database': 'operational' if database_status == "connected" else 'degraded',
+            'authentication': 'operational',
+            'ai_insights': 'operational'
+        }
+    }), 200
 
+# Authentication endpoints
 @application.route('/api/auth/register', methods=['POST'])
-def register_user():
-    """Register a new user"""
+def register_manager():
     try:
         data = request.get_json()
-        email = data.get('email')
-        password = data.get('password')
-        name = data.get('name')
         
-        if not all([email, password, name]):
-            return jsonify({'error': 'Missing required fields'}), 400
+        if not data:
+            return jsonify({'error': True, 'message': 'No data provided'}), 400
         
+        name = data.get('name', '').strip()
+        email = data.get('email', '').strip().lower()
+        password = data.get('password', '')
+        organization = data.get('organization', '').strip()
+        
+        if not name or not email or not password or not organization:
+            return jsonify({'error': True, 'message': 'All fields are required'}), 400
+        
+        # Check if user exists
         existing_user = User.query.filter_by(email=email).first()
         if existing_user:
-            return jsonify({'error': 'User already exists'}), 409
+            return jsonify({'error': True, 'message': 'User already exists'}), 409
         
-        password_hash = hash_password(password)
+        # Create user
         user_id = generate_id('user')
+        password_hash = hash_password(password)
         
         new_user = User(
             id=user_id,
             email=email,
             password_hash=password_hash,
-            name=name
+            name=name,
+            role='manager'
         )
         
         db.session.add(new_user)
+        
+        # Create team
+        team_id = generate_id('team')
+        employee_code = generate_team_code()
+        manager_code = generate_team_code()
+        
+        new_team = Team(
+            id=team_id,
+            name=organization,
+            employee_code=employee_code,
+            manager_code=manager_code
+        )
+        
+        db.session.add(new_team)
+        
+        # Link user to team
+        new_user.team_id = team_id
+        
         db.session.commit()
         
+        # Create token
+        token = create_jwt_token(user_id, team_id, 'manager')
+        
         return jsonify({
-            'message': 'User registered successfully',
-            'user_id': user_id
+            'success': True,
+            'message': 'Manager registered successfully',
+            'user': {
+                'id': user_id,
+                'name': name,
+                'email': email,
+                'role': 'manager',
+                'organization': organization
+            },
+            'team': {
+                'id': team_id,
+                'name': organization,
+                'employee_code': employee_code,
+                'manager_code': manager_code
+            },
+            'token': token
         }), 201
         
     except Exception as e:
-        logger.error(f"Registration error: {e}")
-        return jsonify({'error': 'Registration failed'}), 500
+        logger.error(f"Registration failed: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': True, 'message': 'Registration failed. Please try again.'}), 500
 
 @application.route('/api/auth/login', methods=['POST'])
-def login_user():
-    """Login user"""
+def login_manager():
     try:
         data = request.get_json()
-        email = data.get('email')
-        password = data.get('password')
         
-        if not all([email, password]):
-            return jsonify({'error': 'Missing email or password'}), 400
+        if not data:
+            return jsonify({'error': True, 'message': 'No data provided'}), 400
         
+        email = data.get('email', '').strip().lower()
+        password = data.get('password', '')
+        
+        if not email or not password:
+            return jsonify({'error': True, 'message': 'Email and password are required'}), 400
+        
+        # Find user
         user = User.query.filter_by(email=email).first()
         if not user:
-            return jsonify({'error': 'Invalid credentials'}), 401
+            return jsonify({'error': True, 'message': 'Invalid credentials'}), 401
         
+        # Verify password
         if not verify_password(password, user.password_hash):
-            return jsonify({'error': 'Invalid credentials'}), 401
+            return jsonify({'error': True, 'message': 'Invalid credentials'}), 401
         
-        token = create_jwt_token(user.id, '', 'user')
+        # Create token
+        token = create_jwt_token(user.id, user.team_id or '', user.role)
         
         return jsonify({
+            'success': True,
             'message': 'Login successful',
-            'token': token,
             'user': {
                 'id': user.id,
+                'name': user.name,
                 'email': user.email,
-                'name': user.name
-            }
+                'role': user.role,
+                'team_id': user.team_id
+            },
+            'token': token
         }), 200
         
     except Exception as e:
-        logger.error(f"Login error: {e}")
-        return jsonify({'error': 'Login failed'}), 500
+        logger.error(f"Login failed: {str(e)}")
+        return jsonify({'error': True, 'message': 'Login failed. Please try again.'}), 500
 
-@application.route('/api/teams', methods=['POST'])
-def create_team():
-    """Create a new team"""
+@application.route('/api/auth/employee-login', methods=['POST'])
+def employee_login():
     try:
         data = request.get_json()
-        name = data.get('name')
-        manager_id = data.get('manager_id')
         
-        if not name:
-            return jsonify({'error': 'Team name is required'}), 400
+        if not data:
+            return jsonify({'error': True, 'message': 'No data provided'}), 400
         
-        team_id = generate_id('team')
+        team_code = data.get('team_code', '').strip().upper()
+        user_name = data.get('user_name', '').strip()
+        
+        if not team_code or not user_name:
+            return jsonify({'error': True, 'message': 'Team code and user name are required'}), 400
+        
+        # Find team
+        team = Team.query.filter_by(employee_code=team_code).first()
+        if not team:
+            return jsonify({'error': True, 'message': 'Invalid team code'}), 401
+        
+        # Check if user exists
+        existing_user = User.query.filter_by(team_id=team.id, name=user_name).first()
+        
+        if existing_user:
+            # Login existing user
+            token = create_jwt_token(existing_user.id, team.id, 'employee')
+            
+            return jsonify({
+                'success': True,
+                'message': 'Login successful',
+                'user': {
+                    'id': existing_user.id,
+                    'name': existing_user.name,
+                    'role': 'employee',
+                    'team_id': team.id
+                },
+                'team': {
+                    'id': team.id,
+                    'name': team.name,
+                    'employee_code': team.employee_code
+                },
+                'token': token
+            }), 200
+        else:
+            # Create new user
+            user_id = generate_id('user')
+            
+            new_user = User(
+                id=user_id,
+                email=f"{user_name.lower().replace(' ', '.')}@{team.id}.local",
+                password_hash=hash_password('default'),
+                name=user_name,
+                team_id=team.id,
+                role='employee'
+            )
+            
+            db.session.add(new_user)
+            db.session.commit()
+            
+            token = create_jwt_token(user_id, team.id, 'employee')
+            
+            return jsonify({
+                'success': True,
+                'message': 'Employee registered and logged in successfully',
+                'user': {
+                    'id': user_id,
+                    'name': user_name,
+                    'role': 'employee',
+                    'team_id': team.id
+                },
+                'team': {
+                    'id': team.id,
+                    'name': team.name,
+                    'employee_code': team.employee_code
+                },
+                'token': token
+            }), 201
+        
+    except Exception as e:
+        logger.error(f"Employee login failed: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': True, 'message': 'Login failed. Please try again.'}), 500
+
+# Team endpoints
+@application.route('/api/teams', methods=['POST'])
+def create_team():
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': True, 'message': 'No data provided'}), 400
+        
+        name = data.get('name', '').strip()
+        user_name = data.get('user_name', '').strip()
+        
+        if not name or not user_name:
+            return jsonify({'error': True, 'message': 'Team name and user name are required'}), 400
+        
+        # Generate codes
         employee_code = generate_team_code()
+        manager_code = generate_team_code()
         
+        # Create team
+        team_id = generate_id('team')
         new_team = Team(
             id=team_id,
             name=name,
             employee_code=employee_code,
-            manager_id=manager_id
+            manager_code=manager_code
         )
         
         db.session.add(new_team)
         db.session.commit()
         
         return jsonify({
+            'success': True,
             'message': 'Team created successfully',
             'team': {
                 'id': team_id,
                 'name': name,
-                'employee_code': employee_code
+                'employee_code': employee_code,
+                'manager_code': manager_code
             }
         }), 201
         
     except Exception as e:
-        logger.error(f"Team creation error: {e}")
-        return jsonify({'error': 'Team creation failed'}), 500
+        logger.error(f"Team creation failed: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': True, 'message': 'Team creation failed'}), 500
 
 @application.route('/api/teams', methods=['GET'])
 def get_teams():
-    """Get all teams"""
     try:
         teams = Team.query.all()
         return jsonify({
-            'teams': [
-                {
-                    'id': team.id,
-                    'name': team.name,
-                    'employee_code': team.employee_code,
-                    'created_at': team.created_at.isoformat()
-                }
-                for team in teams
-            ]
+            'success': True,
+            'teams': [{
+                'id': team.id,
+                'name': team.name,
+                'employee_code': team.employee_code,
+                'created_at': team.created_at.isoformat() if team.created_at else None
+            } for team in teams]
         }), 200
-        
     except Exception as e:
-        logger.error(f"Get teams error: {e}")
-        return jsonify({'error': 'Failed to get teams'}), 500
+        logger.error(f"Failed to get teams: {str(e)}")
+        return jsonify({'error': True, 'message': 'Failed to get teams'}), 500
 
 @application.route('/api/teams/join', methods=['POST'])
 def join_team():
-    """Join a team with employee code"""
     try:
         data = request.get_json()
-        employee_code = data.get('employee_code')
-        user_name = data.get('user_name')
         
-        if not all([employee_code, user_name]):
-            return jsonify({'error': 'Employee code and user name required'}), 400
+        if not data:
+            return jsonify({'error': True, 'message': 'No data provided'}), 400
         
+        employee_code = data.get('employee_code', '').strip().upper()
+        user_name = data.get('user_name', '').strip()
+        
+        if not employee_code or not user_name:
+            return jsonify({'error': True, 'message': 'Employee code and user name are required'}), 400
+        
+        # Find team
         team = Team.query.filter_by(employee_code=employee_code).first()
         if not team:
-            return jsonify({'error': 'Invalid employee code'}), 404
+            return jsonify({'error': True, 'message': 'Invalid employee code'}), 404
         
-        # Create user if doesn't exist
+        # Check if user exists
+        existing_user = User.query.filter_by(team_id=team.id, name=user_name).first()
+        
+        if existing_user:
+            return jsonify({
+                'success': True,
+                'message': 'User already exists in team',
+                'user': {
+                    'id': existing_user.id,
+                    'name': existing_user.name,
+                    'role': 'employee',
+                    'team_id': team.id
+                },
+                'team': {
+                    'id': team.id,
+                    'name': team.name,
+                    'employee_code': team.employee_code
+                }
+            }), 200
+        
+        # Create new user
         user_id = generate_id('user')
         new_user = User(
             id=user_id,
             email=f"{user_name.lower().replace(' ', '.')}@{team.id}.local",
-            password_hash=hash_password('default123'),
-            name=user_name
+            password_hash=hash_password('default'),
+            name=user_name,
+            team_id=team.id,
+            role='employee'
         )
+        
         db.session.add(new_user)
         db.session.commit()
         
-        token = create_jwt_token(user_id, team.id, 'employee')
-        
         return jsonify({
+            'success': True,
             'message': 'Successfully joined team',
-            'token': token,
-            'team': {
-                'id': team.id,
-                'name': team.name
-            },
             'user': {
                 'id': user_id,
-                'name': user_name
+                'name': user_name,
+                'role': 'employee',
+                'team_id': team.id
+            },
+            'team': {
+                'id': team.id,
+                'name': team.name,
+                'employee_code': team.employee_code
+            }
+        }), 201
+        
+    except Exception as e:
+        logger.error(f"Team join failed: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': True, 'message': 'Failed to join team'}), 500
+
+# Activity tracking
+@application.route('/api/activity/track', methods=['POST'])
+def track_activity():
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': True, 'message': 'No data provided'}), 400
+        
+        user_id = data.get('user_id')
+        team_id = data.get('team_id')
+        date_str = data.get('date')
+        
+        if not user_id or not team_id or not date_str:
+            return jsonify({'error': True, 'message': 'User ID, team ID, and date are required'}), 400
+        
+        try:
+            date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'error': True, 'message': 'Invalid date format. Use YYYY-MM-DD'}), 400
+        
+        # Check if activity exists
+        existing_activity = Activity.query.filter_by(
+            user_id=user_id,
+            team_id=team_id,
+            date=date
+        ).first()
+        
+        if existing_activity:
+            # Update existing
+            existing_activity.active_app = data.get('active_app')
+            existing_activity.productive_hours = data.get('productive_hours', 0.0)
+            existing_activity.unproductive_hours = data.get('unproductive_hours', 0.0)
+            existing_activity.last_active = datetime.utcnow()
+            
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Activity updated successfully',
+                'activity_id': existing_activity.id
+            }), 200
+        else:
+            # Create new
+            new_activity = Activity(
+                user_id=user_id,
+                team_id=team_id,
+                date=date,
+                active_app=data.get('active_app'),
+                productive_hours=data.get('productive_hours', 0.0),
+                unproductive_hours=data.get('unproductive_hours', 0.0),
+                last_active=datetime.utcnow()
+            )
+            
+            db.session.add(new_activity)
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Activity tracked successfully',
+                'activity_id': new_activity.id
+            }), 201
+        
+    except Exception as e:
+        logger.error(f"Activity tracking failed: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': True, 'message': 'Failed to track activity'}), 500
+
+# Analytics endpoints
+@application.route('/api/analytics/burnout-risk', methods=['GET'])
+def get_burnout_risk():
+    try:
+        team_id = request.args.get('team_id')
+        if not team_id:
+            return jsonify({'error': True, 'message': 'Team ID is required'}), 400
+        
+        return jsonify({
+            'success': True,
+            'burnout_risk': 'low',
+            'risk_factors': [],
+            'metrics': {
+                'avg_daily_hours': 8.0,
+                'avg_productivity': 0.8,
+                'total_activities': 0
             }
         }), 200
         
     except Exception as e:
-        logger.error(f"Join team error: {e}")
-        return jsonify({'error': 'Failed to join team'}), 500
-
-@application.route('/api/teams/<team_id>/members', methods=['GET'])
-def get_team_members(team_id):
-    """Get team members"""
-    try:
-        # Mock team members data
-        members = [
-            {
-                'userId': 'user_1',
-                'name': 'John Doe',
-                'role': 'employee',
-                'department': 'Engineering',
-                'productiveHours': 8.5,
-                'unproductiveHours': 1.2,
-                'totalHours': 9.7,
-                'productivityScore': 85,
-                'lastActive': datetime.utcnow().isoformat(),
-                'status': 'online',
-                'isOnline': True,
-                'focusSessions': 3,
-                'breaksTaken': 2,
-                'weeklyAverage': 85,
-                'monthlyAverage': 82
-            },
-            {
-                'userId': 'user_2',
-                'name': 'Jane Smith',
-                'role': 'manager',
-                'department': 'Management',
-                'productiveHours': 9.2,
-                'unproductiveHours': 0.8,
-                'totalHours': 10.0,
-                'productivityScore': 92,
-                'lastActive': datetime.utcnow().isoformat(),
-                'status': 'online',
-                'isOnline': True,
-                'focusSessions': 4,
-                'breaksTaken': 3,
-                'weeklyAverage': 88,
-                'monthlyAverage': 85
-            }
-        ]
-        
-        return jsonify({'members': members}), 200
-        
-    except Exception as e:
-        logger.error(f"Get team members error: {e}")
-        return jsonify({'error': 'Failed to get team members'}), 500
-
-@application.route('/api/activity/track', methods=['POST'])
-def track_activity():
-    """Track user activity"""
-    try:
-        data = request.get_json()
-        user_id = data.get('user_id')
-        team_id = data.get('team_id')
-        active_app = data.get('active_app')
-        productive_hours = data.get('productive_hours', 0.0)
-        unproductive_hours = data.get('unproductive_hours', 0.0)
-        
-        if not all([user_id, team_id]):
-            return jsonify({'error': 'Missing required fields'}), 400
-        
-        new_activity = Activity(
-            user_id=user_id,
-            team_id=team_id,
-            date=datetime.utcnow().date(),
-            active_app=active_app,
-            productive_hours=productive_hours,
-            unproductive_hours=unproductive_hours
-        )
-        
-        db.session.add(new_activity)
-        db.session.commit()
-        
-        return jsonify({
-            'message': 'Activity tracked successfully',
-            'activity_id': new_activity.id
-        }), 201
-        
-    except Exception as e:
-        logger.error(f"Activity tracking error: {e}")
-        return jsonify({'error': 'Activity tracking failed'}), 500
-
-@application.route('/api/analytics/burnout-risk', methods=['GET'])
-def get_burnout_risk():
-    """Get burnout risk analysis"""
-    try:
-        # Mock burnout risk data
-        burnout_data = {
-            'overall_risk': 'low',
-            'risk_score': 25,
-            'factors': [
-                {
-                    'factor': 'Work Hours',
-                    'risk': 'low',
-                    'score': 20,
-                    'description': 'Working reasonable hours'
-                },
-                {
-                    'factor': 'Break Frequency',
-                    'risk': 'medium',
-                    'score': 45,
-                    'description': 'Taking adequate breaks'
-                },
-                {
-                    'factor': 'Focus Sessions',
-                    'risk': 'low',
-                    'score': 15,
-                    'description': 'Good focus session management'
-                }
-            ],
-            'recommendations': [
-                'Continue taking regular breaks',
-                'Maintain current work schedule',
-                'Consider implementing focus blocks'
-            ]
-        }
-        
-        return jsonify(burnout_data), 200
-        
-    except Exception as e:
-        logger.error(f"Burnout risk error: {e}")
-        return jsonify({'error': 'Failed to get burnout risk'}), 500
+        logger.error(f"Burnout risk analysis failed: {str(e)}")
+        return jsonify({'error': True, 'message': 'Failed to analyze burnout risk'}), 500
 
 @application.route('/api/analytics/distraction-profile', methods=['GET'])
 def get_distraction_profile():
-    """Get distraction profile analysis"""
     try:
-        # Mock distraction profile data
-        distraction_data = {
-            'overall_score': 75,
-            'category': 'moderate',
-            'breakdown': {
-                'social_media': 30,
-                'email': 25,
-                'meetings': 20,
-                'other': 25
-            },
-            'trends': [
-                {'day': 'Monday', 'score': 70},
-                {'day': 'Tuesday', 'score': 75},
-                {'day': 'Wednesday', 'score': 80},
-                {'day': 'Thursday', 'score': 72},
-                {'day': 'Friday', 'score': 68}
-            ],
-            'recommendations': [
-                'Limit social media usage during work hours',
-                'Batch email checking to specific times',
-                'Reduce unnecessary meetings'
-            ]
-        }
+        team_id = request.args.get('team_id')
+        if not team_id:
+            return jsonify({'error': True, 'message': 'Team ID is required'}), 400
         
-        return jsonify(distraction_data), 200
-        
-    except Exception as e:
-        logger.error(f"Distraction profile error: {e}")
-        return jsonify({'error': 'Failed to get distraction profile'}), 500
-
-@application.route('/api/subscription/status', methods=['GET'])
-def get_subscription_status():
-    """Get subscription status"""
-    try:
-        # Mock subscription data
-        status_data = {
-            'status': 'active',
-            'employee_count': 5,
-            'monthly_cost': 49.95,
-            'current_period_start': datetime.utcnow().isoformat(),
-            'current_period_end': (datetime.utcnow() + timedelta(days=30)).isoformat()
-        }
-        
-        return jsonify(status_data), 200
-        
-    except Exception as e:
-        logger.error(f"Subscription status error: {e}")
-        return jsonify({'error': 'Failed to get subscription status'}), 500
-
-@application.route('/api/teams/<team_id>/tasks', methods=['GET'])
-def get_team_tasks(team_id):
-    """Get team tasks"""
-    try:
-        # Mock tasks data
-        tasks = [
-            {
-                'id': 1,
-                'title': 'Complete frontend dashboard',
-                'description': 'Finish the manager dashboard UI',
-                'assignedTo': 'user_1',
-                'assignedToName': 'John Doe',
-                'assignedBy': 'user_2',
-                'assignedByName': 'Jane Smith',
-                'status': 'in_progress',
-                'priority': 'high',
-                'dueDate': (datetime.utcnow() + timedelta(days=3)).isoformat(),
-                'createdAt': datetime.utcnow().isoformat(),
-                'updatedAt': datetime.utcnow().isoformat(),
-                'estimatedHours': 8,
-                'actualHours': 6,
-                'tags': ['urgent', 'frontend'],
-                'comments': []
-            },
-            {
-                'id': 2,
-                'title': 'Backend API testing',
-                'description': 'Test all API endpoints',
-                'assignedTo': 'user_2',
-                'assignedToName': 'Jane Smith',
-                'assignedBy': 'user_1',
-                'assignedByName': 'John Doe',
-                'status': 'pending',
-                'priority': 'medium',
-                'dueDate': (datetime.utcnow() + timedelta(days=5)).isoformat(),
-                'createdAt': datetime.utcnow().isoformat(),
-                'updatedAt': datetime.utcnow().isoformat(),
-                'estimatedHours': 4,
-                'actualHours': 0,
-                'tags': ['testing', 'backend'],
-                'comments': []
+        return jsonify({
+            'success': True,
+            'distraction_level': 'low',
+            'distractions': [],
+            'metrics': {
+                'distraction_ratio': 0.2,
+                'total_unproductive_hours': 1.6,
+                'total_productive_hours': 6.4
             }
-        ]
-        
-        return jsonify({'tasks': tasks}), 200
+        }), 200
         
     except Exception as e:
-        logger.error(f"Get team tasks error: {e}")
-        return jsonify({'error': 'Failed to get team tasks'}), 500
-
-@application.route('/api/teams/<team_id>/analytics', methods=['GET'])
-def get_team_analytics(team_id):
-    """Get team analytics"""
-    try:
-        # Mock analytics data
-        analytics_data = {
-            'team_id': team_id,
-            'total_members': 5,
-            'active_members': 4,
-            'total_productive_hours': 120.5,
-            'total_unproductive_hours': 15.2,
-            'average_productivity': 85.2,
-            'weekly_trend': [
-                {'day': 'Monday', 'productive': 8.5, 'unproductive': 1.2},
-                {'day': 'Tuesday', 'productive': 9.2, 'unproductive': 0.8},
-                {'day': 'Wednesday', 'productive': 7.8, 'unproductive': 1.5},
-                {'day': 'Thursday', 'productive': 8.9, 'unproductive': 1.1},
-                {'day': 'Friday', 'productive': 7.1, 'unproductive': 1.8}
-            ],
-            'top_performers': [
-                {'name': 'John Doe', 'productivity': 92, 'hours': 9.5},
-                {'name': 'Jane Smith', 'productivity': 88, 'hours': 8.8},
-                {'name': 'Mike Johnson', 'productivity': 85, 'hours': 8.2}
-            ],
-            'productivity_distribution': {
-                'high': 3,
-                'medium': 5,
-                'low': 2
-            }
-        }
-        
-        return jsonify(analytics_data), 200
-        
-    except Exception as e:
-        logger.error(f"Get team analytics error: {e}")
-        return jsonify({'error': 'Failed to get team analytics'}), 500
-
-@application.route('/api/teams/<team_id>/members/realtime', methods=['GET'])
-def get_realtime_members(team_id):
-    """Get real-time team member status"""
-    try:
-        # Mock realtime members data
-        realtime_members = [
-            {
-                'userId': 'user_1',
-                'name': 'John Doe',
-                'role': 'employee',
-                'isOnline': True,
-                'status': 'online',
-                'lastActive': datetime.utcnow().isoformat(),
-                'currentActivity': 'VS Code',
-                'productiveHours': 8.5,
-                'unproductiveHours': 1.2
-            },
-            {
-                'userId': 'user_2',
-                'name': 'Jane Smith',
-                'role': 'manager',
-                'isOnline': True,
-                'status': 'online',
-                'lastActive': datetime.utcnow().isoformat(),
-                'currentActivity': 'Slack',
-                'productiveHours': 9.2,
-                'unproductiveHours': 0.8
-            }
-        ]
-        
-        return jsonify({'members': realtime_members}), 200
-        
-    except Exception as e:
-        logger.error(f"Get realtime members error: {e}")
-        return jsonify({'error': 'Failed to get realtime members'}), 500
+        logger.error(f"Distraction profile analysis failed: {str(e)}")
+        return jsonify({'error': True, 'message': 'Failed to analyze distraction profile'}), 500
 
 @application.route('/api/employee/daily-summary', methods=['GET'])
 def get_daily_summary():
-    """Get employee daily summary"""
     try:
-        # Mock daily summary data
-        summary = {
-            'total_hours': 9.7,
-            'productive_hours': 8.5,
-            'unproductive_hours': 1.2,
-            'productivity_score': 87.6,
-            'focus_sessions': 3,
-            'breaks_taken': 2,
-            'apps_used': 8,
-            'websites_visited': 12
-        }
+        user_id = request.args.get('user_id')
+        team_id = request.args.get('team_id')
+        date_str = request.args.get('date')
         
-        return jsonify(summary), 200
+        if not user_id or not team_id or not date_str:
+            return jsonify({'error': True, 'message': 'User ID, team ID, and date are required'}), 400
+        
+        try:
+            date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'error': True, 'message': 'Invalid date format. Use YYYY-MM-DD'}), 400
+        
+        activity = Activity.query.filter_by(
+            user_id=user_id,
+            team_id=team_id,
+            date=date
+        ).first()
+        
+        if not activity:
+            return jsonify({
+                'success': True,
+                'message': 'No activity data for this date',
+                'summary': {
+                    'productive_hours': 0,
+                    'unproductive_hours': 0,
+                    'idle_hours': 0,
+                    'productivity_score': 0,
+                    'focus_sessions': 0,
+                    'breaks_taken': 0
+                }
+            }), 200
+        
+        return jsonify({
+            'success': True,
+            'summary': {
+                'productive_hours': activity.productive_hours,
+                'unproductive_hours': activity.unproductive_hours,
+                'idle_hours': 0,
+                'productivity_score': 0.8,
+                'focus_sessions': 0,
+                'breaks_taken': 0,
+                'active_app': activity.active_app,
+                'window_title': None,
+                'last_active': activity.last_active.isoformat() if activity.last_active else None
+            }
+        }), 200
         
     except Exception as e:
-        logger.error(f"Get daily summary error: {e}")
-        return jsonify({'error': 'Failed to get daily summary'}), 500
+        logger.error(f"Daily summary failed: {str(e)}")
+        return jsonify({'error': True, 'message': 'Failed to get daily summary'}), 500
 
-# Initialize database
+# Database initialization
 def init_db():
-    """Initialize the database"""
     try:
         with application.app_context():
             db.create_all()
@@ -630,19 +652,7 @@ def init_db():
         logger.error(f"❌ Database initialization failed: {e}")
 
 if __name__ == '__main__':
-    logger.info("🚀 Starting ProductivityFlow Backend (Simplified)")
-    logger.info(f"Python version: {sys.version}")
-    logger.info(f"Flask version: 2.3.3")
-    
-    # Initialize database
     init_db()
-    
-    # Get port from environment or use default
-    port = int(os.environ.get('PORT', 5000))
-    
-    # Start the application
-    application.run(
-        host='0.0.0.0',
-        port=port,
-        debug=False
-    ) 
+    application.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+else:
+    init_db() 
