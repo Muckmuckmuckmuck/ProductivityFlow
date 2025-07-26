@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """
-ProductivityFlow Backend - Simple Working Version
-Minimal backend that works with existing database
+ProductivityFlow Backend - Minimal Working Version
+Simplest possible backend that works with existing database
 """
 
 import os
-import sys
 import logging
 import random
 import string
@@ -23,18 +22,18 @@ logger = logging.getLogger(__name__)
 # Initialize Flask app
 application = Flask(__name__)
 
-# Simple configuration
-application.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key')
-application.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key')
+# Minimal configuration
+application.config['SECRET_KEY'] = 'dev-secret-key'
+application.config['JWT_SECRET_KEY'] = 'jwt-secret-key'
 
-# Database configuration - use existing database
+# Use existing database URL
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL:
     application.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
     logger.info("✅ Using existing database")
 else:
     application.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///productivityflow.db'
-    logger.info("⚠️ Using SQLite database (development mode)")
+    logger.info("⚠️ Using SQLite database")
 
 application.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -42,14 +41,13 @@ application.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(application)
 CORS(application)
 
-# Simple models that work with existing database
+# Minimal models - only essential fields
 class Team(db.Model):
     __tablename__ = 'teams'
     id = db.Column(db.String(80), primary_key=True)
     name = db.Column(db.String(120), nullable=False)
     employee_code = db.Column(db.String(10), unique=True, nullable=False)
     manager_code = db.Column(db.String(10), unique=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=True)
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -59,7 +57,6 @@ class User(db.Model):
     name = db.Column(db.String(120), nullable=False)
     team_id = db.Column(db.String(80), db.ForeignKey('teams.id'), nullable=True)
     role = db.Column(db.String(50), default='employee', nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=True)
 
 class Activity(db.Model):
     __tablename__ = 'activities'
@@ -70,7 +67,6 @@ class Activity(db.Model):
     active_app = db.Column(db.String(255), nullable=True)
     productive_hours = db.Column(db.Float, default=0.0)
     unproductive_hours = db.Column(db.Float, default=0.0)
-    last_active = db.Column(db.DateTime, default=datetime.utcnow)
 
 # Utility functions
 def generate_id(prefix):
@@ -100,13 +96,6 @@ def create_jwt_token(user_id, team_id, role):
     }
     return jwt.encode(payload, application.config['JWT_SECRET_KEY'], algorithm='HS256')
 
-def verify_jwt_token(token):
-    try:
-        payload = jwt.decode(token, application.config['JWT_SECRET_KEY'], algorithms=['HS256'])
-        return payload
-    except:
-        return None
-
 # Health check
 @application.route('/health', methods=['GET'])
 def health_check():
@@ -121,7 +110,7 @@ def health_check():
         'status': 'healthy',
         'timestamp': datetime.utcnow().isoformat(),
         'version': '3.2.1',
-        'environment': os.environ.get('FLASK_ENV', 'development'),
+        'environment': 'production',
         'database': database_status,
         'services': {
             'database': 'operational' if database_status == "connected" else 'degraded',
@@ -393,8 +382,7 @@ def get_teams():
             'teams': [{
                 'id': team.id,
                 'name': team.name,
-                'employee_code': team.employee_code,
-                'created_at': team.created_at.isoformat() if team.created_at else None
+                'employee_code': team.employee_code
             } for team in teams]
         }), 200
     except Exception as e:
@@ -508,7 +496,6 @@ def track_activity():
             existing_activity.active_app = data.get('active_app')
             existing_activity.productive_hours = data.get('productive_hours', 0.0)
             existing_activity.unproductive_hours = data.get('unproductive_hours', 0.0)
-            existing_activity.last_active = datetime.utcnow()
             
             db.session.commit()
             
@@ -525,8 +512,7 @@ def track_activity():
                 date=date,
                 active_app=data.get('active_app'),
                 productive_hours=data.get('productive_hours', 0.0),
-                unproductive_hours=data.get('unproductive_hours', 0.0),
-                last_active=datetime.utcnow()
+                unproductive_hours=data.get('unproductive_hours', 0.0)
             )
             
             db.session.add(new_activity)
@@ -634,7 +620,7 @@ def get_daily_summary():
                 'breaks_taken': 0,
                 'active_app': activity.active_app,
                 'window_title': None,
-                'last_active': activity.last_active.isoformat() if activity.last_active else None
+                'last_active': None
             }
         }), 200
         
