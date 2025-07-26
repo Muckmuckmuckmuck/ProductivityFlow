@@ -339,10 +339,16 @@ def register_manager():
         
         db.session.add(new_user)
         
-        # Create team
+        # Create team with guaranteed unique codes
         team_id = generate_id('team')
         employee_code = generate_team_code()
         manager_code = generate_team_code()
+        
+        # Ensure codes are unique
+        while Team.query.filter_by(employee_code=employee_code).first():
+            employee_code = generate_team_code()
+        while Team.query.filter_by(manager_code=manager_code).first():
+            manager_code = generate_team_code()
         
         new_team = Team(
             id=team_id,
@@ -361,7 +367,7 @@ def register_manager():
         # Create token
         token = create_jwt_token(user_id, team_id, 'manager')
         
-        logger.info(f"Manager registered successfully: {email}")
+        logger.info(f"Manager registered successfully: {email} with team {organization} (Employee Code: {employee_code})")
         
         return jsonify({
             'success': True,
@@ -489,30 +495,26 @@ def verify_email():
         if not user:
             return jsonify({'error': True, 'message': 'Invalid email or verification code'}), 400
         
-        # In a real implementation, you would:
-        # 1. Check if the verification code matches what was sent
-        # 2. Verify the code hasn't expired
-        # 3. Mark the user as verified
-        
-        # For now, we'll just mark the user as verified and return success
-        # In production, you'd store and verify the actual verification code
-        
-        logger.info(f"Email verification successful for: {email}")
-        
-        # Create JWT token for the user
-        token = create_jwt_token(user.id, user.team_id, user.role)
-        
-        return jsonify({
-            'success': True,
-            'message': 'Email verified successfully',
-            'user': {
-                'id': user.id,
-                'name': user.name,
-                'email': user.email,
-                'organization': getattr(user, 'organization', 'Default Organization')
-            },
-            'token': token
-        }), 200
+        # For development/testing, accept any 6-digit code
+        if verification_code == '123456' or len(verification_code) == 6:
+            logger.info(f"Email verification successful for: {email}")
+            
+            # Create JWT token for the user
+            token = create_jwt_token(user.id, user.team_id, user.role)
+            
+            return jsonify({
+                'success': True,
+                'message': 'Email verified successfully',
+                'user': {
+                    'id': user.id,
+                    'name': user.name,
+                    'email': user.email,
+                    'organization': getattr(user, 'organization', 'Default Organization')
+                },
+                'token': token
+            }), 200
+        else:
+            return jsonify({'error': True, 'message': 'Invalid verification code'}), 400
         
     except Exception as e:
         logger.error(f"Email verification failed: {str(e)}")
@@ -708,6 +710,81 @@ def get_teams():
     except Exception as e:
         logger.error(f"Failed to get teams: {str(e)}")
         return jsonify({'error': True, 'message': 'Failed to get teams'}), 500
+
+@application.route('/api/teams/<team_id>', methods=['GET'])
+def get_team(team_id):
+    try:
+        team = Team.query.filter_by(id=team_id).first()
+        if not team:
+            return jsonify({'error': True, 'message': 'Team not found'}), 404
+        
+        # Get team members
+        users = User.query.filter_by(team_id=team_id).all()
+        team_members = [{
+            'id': user.id,
+            'name': user.name,
+            'email': user.email,
+            'role': user.role
+        } for user in users]
+        
+        return jsonify({
+            'success': True,
+            'team': {
+                'id': team.id,
+                'name': team.name,
+                'employee_code': team.employee_code,
+                'manager_code': team.manager_code,
+                'members': team_members
+            }
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Failed to get team: {str(e)}")
+        return jsonify({'error': True, 'message': 'Failed to get team'}), 500
+
+@application.route('/api/teams/<team_id>', methods=['DELETE'])
+def delete_team(team_id):
+    try:
+        # Find team
+        team = Team.query.filter_by(id=team_id).first()
+        if not team:
+            return jsonify({'error': True, 'message': 'Team not found'}), 404
+        
+        # Delete all users in the team
+        users = User.query.filter_by(team_id=team_id).all()
+        for user in users:
+            db.session.delete(user)
+        
+        # Delete all activities for the team
+        activities = Activity.query.filter_by(team_id=team_id).all()
+        for activity in activities:
+            db.session.delete(activity)
+        
+        # Delete all app sessions for the team
+        sessions = AppSession.query.filter_by(team_id=team_id).all()
+        for session in sessions:
+            db.session.delete(session)
+        
+        # Delete all daily summaries for the team
+        summaries = DailySummary.query.filter_by(team_id=team_id).all()
+        for summary in summaries:
+            db.session.delete(summary)
+        
+        # Delete the team
+        db.session.delete(team)
+        db.session.commit()
+        
+        logger.info(f"Team deleted successfully: {team_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Team deleted successfully'
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Team deletion failed: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': True, 'message': 'Failed to delete team'}), 500
 
 @application.route('/api/teams/join', methods=['POST'])
 def join_team():

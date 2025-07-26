@@ -42,6 +42,8 @@ export function AuthView({ onAuthSuccess }: AuthViewProps) {
   const [showEmailVerification, setShowEmailVerification] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
+  const [showTeamCodes, setShowTeamCodes] = useState(false);
+  const [teamData, setTeamData] = useState<any>(null);
   const currentOperation = useRef<string>('');
 
   const handleCreateAccount = async () => {
@@ -87,9 +89,17 @@ export function AuthView({ onAuthSuccess }: AuthViewProps) {
       const data = JSON.parse(response as string);
 
       if (data.success) {
-        setSuccess("Account created successfully! Please check your email for verification code.");
+        // Show team codes if available
+        if (data.team && data.team.employee_code) {
+          setSuccess(`Account created successfully! Your team codes are ready. Employee Code: ${data.team.employee_code}`);
+        } else {
+          setSuccess("Account created successfully! Please check your email for verification code.");
+        }
         setShowEmailVerification(true);
-        // Don't auto-login - require email verification first
+        // Store team data for later use
+        if (data.team) {
+          localStorage.setItem('pendingTeamData', JSON.stringify(data.team));
+        }
       } else {
         setError(data.message || 'Failed to create account. Please try again.');
       }
@@ -139,12 +149,21 @@ export function AuthView({ onAuthSuccess }: AuthViewProps) {
       const data = JSON.parse(response as string);
 
       if (data.success && data.user && data.token) {
-        setSuccess("Email verified successfully! You can now sign in.");
-        setShowEmailVerification(false);
-        setIsSignIn(true);
-        // Clear the form for sign in
-        setPassword("");
-        setVerificationCode("");
+        // Check if we have team data stored
+        const storedTeamData = localStorage.getItem('pendingTeamData');
+        if (storedTeamData) {
+          const team = JSON.parse(storedTeamData);
+          setTeamData(team);
+          setShowTeamCodes(true);
+          localStorage.removeItem('pendingTeamData');
+        } else {
+          setSuccess("Email verified successfully! You can now sign in.");
+          setShowEmailVerification(false);
+          setIsSignIn(true);
+          // Clear the form for sign in
+          setPassword("");
+          setVerificationCode("");
+        }
       } else {
         setError(data.message || 'Email verification failed. Please try again.');
       }
@@ -256,6 +275,103 @@ export function AuthView({ onAuthSuccess }: AuthViewProps) {
     setIsModeTransitioning(false);
   };
 
+  // Team codes display view
+  if (showTeamCodes && teamData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <Card className="bg-white/90 backdrop-blur-sm border-0 rounded-2xl shadow-xl">
+            <CardHeader className="text-center pb-6">
+              <div className="flex items-center justify-center mb-6">
+                <div className="p-3 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl">
+                  <Building className="h-8 w-8 text-white" />
+                </div>
+              </div>
+              <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                Your Team is Ready!
+              </CardTitle>
+              <p className="text-gray-600 text-lg mt-2">
+                Share these codes with your team members
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                  <h3 className="text-sm font-semibold text-blue-800 mb-2">Employee Code</h3>
+                  <div className="flex items-center justify-between">
+                    <code className="text-lg font-mono font-bold text-blue-900 bg-blue-100 px-3 py-2 rounded-lg">
+                      {teamData.employee_code}
+                    </code>
+                    <Button
+                      onClick={() => navigator.clipboard.writeText(teamData.employee_code)}
+                      className="text-blue-600 hover:text-blue-700"
+                      variant="ghost"
+                      size="sm"
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                  <p className="text-xs text-blue-700 mt-2">
+                    Share this code with employees to join your team
+                  </p>
+                </div>
+
+                <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl">
+                  <h3 className="text-sm font-semibold text-purple-800 mb-2">Manager Code</h3>
+                  <div className="flex items-center justify-between">
+                    <code className="text-lg font-mono font-bold text-purple-900 bg-purple-100 px-3 py-2 rounded-lg">
+                      {teamData.manager_code}
+                    </code>
+                    <Button
+                      onClick={() => navigator.clipboard.writeText(teamData.manager_code)}
+                      className="text-purple-600 hover:text-purple-700"
+                      variant="ghost"
+                      size="sm"
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                  <p className="text-xs text-purple-700 mt-2">
+                    Keep this code secure for administrative access
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col space-y-3">
+                <Button
+                  onClick={() => {
+                    setShowTeamCodes(false);
+                    setIsSignIn(true);
+                    setPassword("");
+                  }}
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3 rounded-xl transition-all duration-200 transform hover:scale-105"
+                >
+                  Continue to Sign In
+                </Button>
+                
+                <Button
+                  onClick={() => {
+                    setShowTeamCodes(false);
+                    setShowEmailVerification(false);
+                    setIsSignIn(false);
+                    setEmail("");
+                    setPassword("");
+                    setName("");
+                    setOrganization("");
+                  }}
+                  variant="outline"
+                  className="w-full border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold py-3 rounded-xl"
+                >
+                  Create Another Account
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   // Email verification view
   if (showEmailVerification) {
     return (
@@ -277,6 +393,11 @@ export function AuthView({ onAuthSuccess }: AuthViewProps) {
               <p className="text-sm text-gray-500 mt-2">
                 {email}
               </p>
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-xs text-yellow-800">
+                  <strong>For testing:</strong> Use verification code <code className="bg-yellow-100 px-1 rounded">123456</code>
+                </p>
+              </div>
             </CardHeader>
             <CardContent className="space-y-6">
               {success && (
