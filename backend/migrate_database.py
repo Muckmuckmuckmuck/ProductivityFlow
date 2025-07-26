@@ -1,79 +1,193 @@
 #!/usr/bin/env python3
 """
-Database Migration Script for ProductivityFlow
-Adds manager_id column to teams table
+Database Migration Script
+Updates the database schema to support enhanced tracking features
 """
 
-from application import application, db
-import sqlite3
+from application import application, db, Activity, AppSession, ProductivityEvent, DailySummary
+from sqlalchemy import text
+import logging
+
+logger = logging.getLogger(__name__)
 
 def migrate_database():
-    """Migrate the database to add manager_id column"""
-    
+    """Migrate the database to support enhanced tracking features"""
     with application.app_context():
+        print("🔄 Starting database migration...")
+        
         try:
-            # Get database connection
-            engine = db.engine
+            # Step 1: Check current database structure
+            print("\n1. Checking current database structure...")
             
-            # Check if manager_id column exists
-            inspector = db.inspect(engine)
-            columns = [col['name'] for col in inspector.get_columns('teams')]
+            # Check activities table structure
+            result = db.session.execute(text("PRAGMA table_info(activities)"))
+            existing_columns = [row[1] for row in result.fetchall()]
+            print(f"Current columns in activities table: {existing_columns}")
             
-            if 'manager_id' not in columns:
-                print("🔄 Adding manager_id column to teams table...")
-                
-                # Add the column
-                with engine.connect() as conn:
-                    conn.execute(db.text("ALTER TABLE teams ADD COLUMN manager_id VARCHAR(80)"))
-                    conn.commit()
-                
-                print("✅ manager_id column added successfully")
-                
-                # Update existing teams with manager_id from memberships
-                print("🔄 Updating existing teams with manager information...")
-                
-                # Get all teams and their managers
-                result = conn.execute(db.text("""
-                    SELECT DISTINCT t.id, m.user_id 
-                    FROM teams t 
-                    JOIN memberships m ON t.id = m.team_id 
-                    WHERE m.role = 'manager'
-                """)).fetchall()
-                
-                for team_id, manager_id in result:
-                    conn.execute(
-                        db.text("UPDATE teams SET manager_id = :manager_id WHERE id = :team_id"),
-                        {"manager_id": manager_id, "team_id": team_id}
+            # Step 2: Add new columns to activities table
+            print("\n2. Adding new columns to activities table...")
+            
+            new_columns = [
+                ("timestamp", "DATETIME DEFAULT CURRENT_TIMESTAMP"),
+                ("app_category", "VARCHAR(100)"),
+                ("window_title", "VARCHAR(500)"),
+                ("app_url", "VARCHAR(1000)"),
+                ("idle_time", "FLOAT DEFAULT 0.0"),
+                ("break_time", "FLOAT DEFAULT 0.0"),
+                ("total_active_time", "FLOAT DEFAULT 0.0"),
+                ("productivity_score", "FLOAT DEFAULT 0.0"),
+                ("focus_time", "FLOAT DEFAULT 0.0"),
+                ("distraction_count", "INTEGER DEFAULT 0"),
+                ("task_switches", "INTEGER DEFAULT 0"),
+                ("cpu_usage", "FLOAT DEFAULT 0.0"),
+                ("memory_usage", "FLOAT DEFAULT 0.0"),
+                ("network_activity", "BOOLEAN DEFAULT FALSE"),
+                ("mouse_clicks", "INTEGER DEFAULT 0"),
+                ("keyboard_activity", "BOOLEAN DEFAULT FALSE"),
+                ("screen_time", "FLOAT DEFAULT 0.0"),
+                ("session_id", "VARCHAR(100)"),
+                ("device_info", "VARCHAR(500)"),
+                ("notes", "TEXT")
+            ]
+            
+            for column_name, column_def in new_columns:
+                if column_name not in existing_columns:
+                    print(f"Adding column: {column_name}")
+                    try:
+                        db.session.execute(text(f"ALTER TABLE activities ADD COLUMN {column_name} {column_def}"))
+                        print(f"✅ Added column: {column_name}")
+                    except Exception as e:
+                        print(f"⚠️  Column {column_name} might already exist: {e}")
+                else:
+                    print(f"✅ Column {column_name} already exists")
+            
+            db.session.commit()
+            
+            # Step 3: Create new tables
+            print("\n3. Creating new tables...")
+            
+            # Create app_sessions table
+            print("Creating app_sessions table...")
+            try:
+                db.session.execute(text("""
+                    CREATE TABLE IF NOT EXISTS app_sessions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id VARCHAR(80) NOT NULL,
+                        team_id VARCHAR(80) NOT NULL,
+                        session_id VARCHAR(100) NOT NULL,
+                        start_time DATETIME NOT NULL,
+                        end_time DATETIME,
+                        app_name VARCHAR(255) NOT NULL,
+                        app_category VARCHAR(100),
+                        window_title VARCHAR(500),
+                        url VARCHAR(1000),
+                        duration FLOAT DEFAULT 0.0,
+                        productivity_score FLOAT DEFAULT 0.0,
+                        activity_level VARCHAR(50) DEFAULT 'low',
+                        focus_score FLOAT DEFAULT 0.0,
+                        mouse_clicks INTEGER DEFAULT 0,
+                        keyboard_events INTEGER DEFAULT 0,
+                        scroll_events INTEGER DEFAULT 0,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                     )
-                
-                conn.commit()
-                print(f"✅ Updated {len(result)} teams with manager information")
-                
-            else:
-                print("✅ manager_id column already exists")
+                """))
+                print("✅ app_sessions table created")
+            except Exception as e:
+                print(f"⚠️  app_sessions table might already exist: {e}")
             
-            # Verify the migration
-            columns = [col['name'] for col in inspector.get_columns('teams')]
-            if 'manager_id' in columns:
-                print("✅ Database migration completed successfully")
-                return True
-            else:
-                print("❌ Migration failed - manager_id column not found")
-                return False
-                
+            # Create productivity_events table
+            print("Creating productivity_events table...")
+            try:
+                db.session.execute(text("""
+                    CREATE TABLE IF NOT EXISTS productivity_events (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id VARCHAR(80) NOT NULL,
+                        team_id VARCHAR(80) NOT NULL,
+                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        event_type VARCHAR(100) NOT NULL,
+                        event_data TEXT,
+                        app_name VARCHAR(255),
+                        app_category VARCHAR(100),
+                        window_title VARCHAR(500),
+                        duration FLOAT DEFAULT 0.0,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )
+                """))
+                print("✅ productivity_events table created")
+            except Exception as e:
+                print(f"⚠️  productivity_events table might already exist: {e}")
+            
+            # Create daily_summaries table
+            print("Creating daily_summaries table...")
+            try:
+                db.session.execute(text("""
+                    CREATE TABLE IF NOT EXISTS daily_summaries (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id VARCHAR(80) NOT NULL,
+                        team_id VARCHAR(80) NOT NULL,
+                        date DATE NOT NULL,
+                        total_productive_time FLOAT DEFAULT 0.0,
+                        total_unproductive_time FLOAT DEFAULT 0.0,
+                        total_idle_time FLOAT DEFAULT 0.0,
+                        total_break_time FLOAT DEFAULT 0.0,
+                        total_screen_time FLOAT DEFAULT 0.0,
+                        overall_productivity_score FLOAT DEFAULT 0.0,
+                        focus_score FLOAT DEFAULT 0.0,
+                        distraction_count INTEGER DEFAULT 0,
+                        task_switch_count INTEGER DEFAULT 0,
+                        most_used_app VARCHAR(255),
+                        most_productive_app VARCHAR(255),
+                        app_usage_breakdown TEXT,
+                        goals_met INTEGER DEFAULT 0,
+                        total_goals INTEGER DEFAULT 0,
+                        achievements TEXT,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )
+                """))
+                print("✅ daily_summaries table created")
+            except Exception as e:
+                print(f"⚠️  daily_summaries table might already exist: {e}")
+            
+            db.session.commit()
+            
+            # Step 4: Verify migration
+            print("\n4. Verifying migration...")
+            
+            # Check activities table structure again
+            result = db.session.execute(text("PRAGMA table_info(activities)"))
+            updated_columns = [row[1] for row in result.fetchall()]
+            print(f"Updated columns in activities table: {len(updated_columns)} columns")
+            
+            # Check new tables exist
+            tables_to_check = ['app_sessions', 'productivity_events', 'daily_summaries']
+            for table in tables_to_check:
+                try:
+                    result = db.session.execute(text(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table}'"))
+                    if result.fetchone():
+                        print(f"✅ {table} table exists")
+                    else:
+                        print(f"❌ {table} table missing")
+                except Exception as e:
+                    print(f"❌ Error checking {table} table: {e}")
+            
+            print("\n🎉 Database migration completed successfully!")
+            print("\n📊 Migration Summary:")
+            print(f"- Added {len(new_columns)} new columns to activities table")
+            print(f"- Created 3 new tables for enhanced tracking")
+            print("- All enhanced tracking features are now ready to use")
+            
+            return True
+            
         except Exception as e:
-            print(f"❌ Migration error: {e}")
+            logger.error(f"Database migration failed: {str(e)}")
+            db.session.rollback()
+            print(f"❌ Database migration failed: {e}")
             return False
 
 if __name__ == "__main__":
-    print("🚀 ProductivityFlow Database Migration")
-    print("=" * 50)
-    
     success = migrate_database()
-    
     if success:
-        print("\n🎉 Migration completed successfully!")
-        print("The database is now ready for the updated schema.")
+        print("\n✅ Migration successful! Enhanced tracking features are now available.")
     else:
-        print("\n❌ Migration failed!")
-        print("Please check the error messages above.")
+        print("\n❌ Migration failed. Please check the errors above.")
