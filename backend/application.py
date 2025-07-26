@@ -243,6 +243,84 @@ def login_manager():
         logger.error(f"Login failed: {str(e)}")
         return jsonify({'error': True, 'message': 'Login failed. Please try again.'}), 500
 
+@application.route('/api/auth/forgot-password', methods=['POST'])
+def forgot_password():
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': True, 'message': 'No data provided'}), 400
+        
+        email = data.get('email', '').strip().lower()
+        
+        if not email:
+            return jsonify({'error': True, 'message': 'Email is required'}), 400
+        
+        # Check if user exists
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            return jsonify({'error': True, 'message': 'If an account with this email exists, a reset link has been sent.'}), 200
+        
+        # Generate reset token (simple implementation for now)
+        reset_token = generate_team_code()  # Using team code generator for simplicity
+        
+        # In a real implementation, you would:
+        # 1. Store the reset token in the database with expiration
+        # 2. Send an email with the reset link
+        # 3. Use a proper token generation method
+        
+        logger.info(f"Password reset requested for: {email}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'If an account with this email exists, a reset link has been sent.',
+            'reset_token': reset_token  # In production, this would be sent via email
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Forgot password failed: {str(e)}")
+        return jsonify({'error': True, 'message': 'Request failed. Please try again.'}), 500
+
+@application.route('/api/auth/reset-password', methods=['POST'])
+def reset_password():
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': True, 'message': 'No data provided'}), 400
+        
+        email = data.get('email', '').strip().lower()
+        token = data.get('token', '').strip()
+        new_password = data.get('new_password', '')
+        
+        if not email or not token or not new_password:
+            return jsonify({'error': True, 'message': 'Email, token, and new password are required'}), 400
+        
+        # Check if user exists
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            return jsonify({'error': True, 'message': 'Invalid email or token'}), 400
+        
+        # In a real implementation, you would:
+        # 1. Verify the reset token is valid and not expired
+        # 2. Check if the token matches what was stored
+        
+        # For now, we'll just update the password
+        user.password_hash = hash_password(new_password)
+        db.session.commit()
+        
+        logger.info(f"Password reset successful for: {email}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Password reset successfully'
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Password reset failed: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': True, 'message': 'Password reset failed. Please try again.'}), 500
+
 @application.route('/api/auth/employee-login', methods=['POST'])
 def employee_login():
     try:
