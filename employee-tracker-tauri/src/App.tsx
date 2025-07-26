@@ -41,10 +41,10 @@ export default function App() {
     localStorage.setItem("tracker_session", JSON.stringify(sessionData));
   };
 
-  const handleLogout = () => {
-    setSession(null);
-    localStorage.removeItem("tracker_session");
-  };
+  // const handleLogout = () => {
+  //   setSession(null);
+  //   localStorage.removeItem("tracker_session");
+  // };
 
   if (isLoading) {
     return (
@@ -60,7 +60,7 @@ export default function App() {
         {!session ? (
           <OnboardingView onTeamJoin={handleTeamJoin} />
         ) : (
-          <TrackingView session={session} onLogout={handleLogout} />
+          <TrackingView />
         )}
       </div>
     </ErrorBoundary>

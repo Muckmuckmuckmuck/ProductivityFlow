@@ -52,8 +52,8 @@ export function AuthView({ onAuthSuccess }: AuthViewProps) {
       return;
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters long.");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters long.");
       return;
     }
 
@@ -65,9 +65,10 @@ export function AuthView({ onAuthSuccess }: AuthViewProps) {
     try {
       const { invoke } = await import('@tauri-apps/api/tauri');
       const requestBody = { 
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         password: password,
-        name: name.trim()
+        name: name.trim(),
+        organization: organization.trim()
       };
       
       const response = await invoke('http_post', {
@@ -81,15 +82,23 @@ export function AuthView({ onAuthSuccess }: AuthViewProps) {
       
       const data = JSON.parse(response as string);
 
-      if (data.error) {
-        setError(data.error);
-      } else if (data.message && data.message.includes("created successfully")) {
-        setSuccess(data.message || "Account created successfully!");
-        setEmail("");
-        setPassword("");
-        setName("");
-        setOrganization("");
-        setIsSignIn(true);
+      if (data.success && data.user && data.token) {
+        setSuccess("Account created successfully!");
+        
+        // Store token in localStorage
+        localStorage.setItem('authToken', data.token);
+        
+        const sessionData = {
+          managerId: data.user.id,
+          managerName: data.user.name,
+          organization: data.user.organization || organization,
+          token: data.token
+        };
+        
+        // Small delay to show success message
+        setTimeout(() => {
+          onAuthSuccess(sessionData);
+        }, 1000);
       } else {
         setError(data.message || 'Failed to create account. Please try again.');
       }
@@ -131,7 +140,7 @@ export function AuthView({ onAuthSuccess }: AuthViewProps) {
     try {
       const { invoke } = await import('@tauri-apps/api/tauri');
       const requestBody = { 
-        email: email.trim(), 
+        email: email.trim().toLowerCase(), 
         password: password 
       };
       
@@ -146,20 +155,14 @@ export function AuthView({ onAuthSuccess }: AuthViewProps) {
       
       const data = JSON.parse(response as string);
 
-      if (data.error) {
-        if (data.error.includes("verify your email")) {
-          setError("Please verify your email before signing in. Check your inbox for verification instructions.");
-        } else {
-          setError(data.error);
-        }
-      } else if (data.message && data.message.includes("Login successful") && data.user && data.token) {
+      if (data.success && data.user && data.token) {
         // Store token in localStorage
         localStorage.setItem('authToken', data.token);
         
         const sessionData = {
-          managerId: data.user.id.toString(),
+          managerId: data.user.id,
           managerName: data.user.name,
-          organization: "Default Organization",
+          organization: data.user.organization || "Default Organization",
           token: data.token
         };
         onAuthSuccess(sessionData);
@@ -269,7 +272,7 @@ export function AuthView({ onAuthSuccess }: AuthViewProps) {
                 <>
                   <div>
                     <label htmlFor="name" className="text-sm font-semibold text-gray-700 mb-2 block">
-                      Full Name
+                      Full Name *
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -289,7 +292,7 @@ export function AuthView({ onAuthSuccess }: AuthViewProps) {
 
                   <div>
                     <label htmlFor="organization" className="text-sm font-semibold text-gray-700 mb-2 block">
-                      Organization
+                      Organization *
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -311,7 +314,7 @@ export function AuthView({ onAuthSuccess }: AuthViewProps) {
 
               <div>
                 <label htmlFor="email" className="text-sm font-semibold text-gray-700 mb-2 block">
-                  Email Address
+                  Email Address *
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -331,7 +334,7 @@ export function AuthView({ onAuthSuccess }: AuthViewProps) {
 
               <div>
                 <label htmlFor="password" className="text-sm font-semibold text-gray-700 mb-2 block">
-                  Password
+                  Password *
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -358,6 +361,11 @@ export function AuthView({ onAuthSuccess }: AuthViewProps) {
                     )}
                   </button>
                 </div>
+                {!isSignIn && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    Password must be at least 8 characters long
+                  </p>
+                )}
               </div>
 
               <Button

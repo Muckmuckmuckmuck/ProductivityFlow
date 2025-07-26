@@ -20,7 +20,7 @@
       "http": {
         "all": true,
         "request": true,
-        "scope": ["http://localhost:3002/*", "http://localhost:5000/*"]
+        "scope": ["http://localhost:3002/*", "http://localhost:5000/*", "https://my-home-backend-7m6d.onrender.com/*"]
       }
     },
     "bundle": {

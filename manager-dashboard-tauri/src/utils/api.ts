@@ -119,7 +119,7 @@ class AuthManager {
 
   private constructor() {
     // Load token from localStorage on initialization
-    this.token = localStorage.getItem('auth_token');
+    this.token = localStorage.getItem('authToken');
   }
 
   static getInstance(): AuthManager {
@@ -131,7 +131,7 @@ class AuthManager {
 
   setToken(token: string) {
     this.token = token;
-    localStorage.setItem('auth_token', token);
+    localStorage.setItem('authToken', token);
   }
 
   getToken(): string | null {
@@ -140,7 +140,7 @@ class AuthManager {
 
   clearToken() {
     this.token = null;
-    localStorage.removeItem('auth_token');
+    localStorage.removeItem('authToken');
   }
 
   isAuthenticated(): boolean {
@@ -223,7 +223,7 @@ class APIClient {
           }
 
           throw new APIError(
-            errorData.error || `HTTP ${response.status}`,
+            errorData.message || errorData.error || `HTTP ${response.status}`,
             response.status,
             errorData.code,
             errorData
@@ -306,9 +306,20 @@ class APIClient {
     return { token, user };
   }
 
-  async register(email: string, password: string, name: string): Promise<{ user_id: string }> {
-    const response = await this.post<{ user_id: string }>('/api/auth/register', { email, password, name });
-    return response.data;
+  async register(email: string, password: string, name: string, organization: string): Promise<{ token: string; user: any; team: any }> {
+    const response = await this.post<{ token: string; user: any; team: any }>('/api/auth/register', { 
+      email, 
+      password, 
+      name, 
+      organization 
+    });
+    const { token, user, team } = response.data;
+    
+    if (token) {
+      this.authManager.setToken(token);
+    }
+    
+    return { token, user, team };
   }
 
   logout(): void {
@@ -346,13 +357,19 @@ export type { APIResponse, RequestConfig };
 export const api = {
   // Teams
   getTeams: () => apiClient.get('/api/teams', { requireAuth: true }),
-  createTeam: (name: string) => apiClient.post('/api/teams', { name }, { requireAuth: true }),
-  joinTeam: (teamCode: string) => apiClient.post('/api/teams/join', { team_code: teamCode }),
+  createTeam: (name: string, user_name?: string) => apiClient.post('/api/teams', { name, user_name }, { requireAuth: true }),
+  joinTeam: (teamCode: string, userName: string, email?: string, password?: string) => 
+    apiClient.post('/api/teams/join', { 
+      employee_code: teamCode, 
+      user_name: userName,
+      email,
+      password
+    }),
   getTeamMembers: (teamId: string) => apiClient.get(`/api/teams/${teamId}/members`, { requireAuth: true }),
   
   // Activity
-  submitActivity: (teamId: string, activityData: any) => 
-    apiClient.post(`/api/teams/${teamId}/activity`, activityData),
+  submitActivity: (activityData: any) => 
+    apiClient.post('/api/activity/track', activityData),
   
   // Analytics
   getBurnoutRisk: (teamId?: string) => 
@@ -370,19 +387,13 @@ export const api = {
   getDailySummary: () => 
     apiClient.get('/api/employee/daily-summary', { requireAuth: true }),
   
-  // Subscription
-  getSubscriptionStatus: () => 
-    apiClient.get('/api/subscription/status', { requireAuth: true }),
-  
-  getCustomerPortal: () => 
-    apiClient.get('/api/subscription/customer-portal', { requireAuth: true }),
-  
   // Health check
   healthCheck: () => apiClient.get('/health'),
   
   // Authentication
   login: (email: string, password: string) => apiClient.login(email, password),
-  register: (email: string, password: string, name: string) => apiClient.register(email, password, name),
+  register: (email: string, password: string, name: string, organization: string) => 
+    apiClient.register(email, password, name, organization),
   logout: () => apiClient.logout(),
   
   // Network status
@@ -418,6 +429,8 @@ export const handleAPIError = (error: any): string => {
         return 'Access denied. You do not have permission to perform this action.';
       case 404:
         return 'The requested resource was not found.';
+      case 409:
+        return 'A resource with this information already exists.';
       case 429:
         return 'Too many requests. Please wait a moment and try again.';
       case 500:

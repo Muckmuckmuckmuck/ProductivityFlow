@@ -29,6 +29,11 @@ export function OnboardingView({ onTeamJoin }: OnboardingViewProps) {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim() || !password.trim()) {
+      setError('Please fill in all fields');
+      return;
+    }
+    
     setIsLoading(true);
     setError('');
     setSuccess('');
@@ -36,8 +41,8 @@ export function OnboardingView({ onTeamJoin }: OnboardingViewProps) {
     try {
       const { invoke } = await import('@tauri-apps/api/tauri');
       
-      const requestBody = { 
-        email: email.trim(),
+      const requestBody = {
+        email: email.trim().toLowerCase(),
         password: password
       };
       
@@ -56,15 +61,15 @@ export function OnboardingView({ onTeamJoin }: OnboardingViewProps) {
         
         // Call the onTeamJoin callback with the session data
         onTeamJoin({
-          teamId: data.user.team_id.toString(),
-          teamName: data.user.team_name,
-          userId: data.user.id.toString(),
+          teamId: data.user.team_id,
+          teamName: data.user.team_name || 'Unknown Team',
+          userId: data.user.id,
           userName: data.user.name,
           role: data.user.role,
           token: data.token,
         });
       } else {
-        setError(data.error || 'Login failed');
+        setError(data.message || 'Login failed');
       }
     } catch (err: any) {
       let errorMessage = "An unexpected error occurred. Please try again.";
@@ -83,6 +88,11 @@ export function OnboardingView({ onTeamJoin }: OnboardingViewProps) {
 
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim() || !teamCode.trim()) {
+      setError('Please fill in all required fields');
+      return;
+    }
+    
     setIsLoading(true);
     setError('');
     setSuccess('');
@@ -93,7 +103,9 @@ export function OnboardingView({ onTeamJoin }: OnboardingViewProps) {
       // Join team directly (this will create the user account)
       const requestBody = {
         employee_code: teamCode.trim().toUpperCase(),
-        user_name: name.trim()
+        user_name: name.trim(),
+        email: email.trim() || undefined,
+        password: password || undefined
       };
       
       const response = await invoke('http_post', {
@@ -106,20 +118,20 @@ export function OnboardingView({ onTeamJoin }: OnboardingViewProps) {
       
       const data = JSON.parse(response as string);
 
-      if (data.message && data.user && data.team) {
-        setSuccess('Successfully joined team!');
+      if (data.success && data.user) {
+        setSuccess('Account created successfully!');
         
         // Call the onTeamJoin callback with the session data
         onTeamJoin({
-          teamId: data.team.id.toString(),
+          teamId: data.user.team_id,
           teamName: data.team.name,
-          userId: data.user.id.toString(),
+          userId: data.user.id,
           userName: data.user.name,
-          role: 'employee',
+          role: data.user.role,
           token: data.token,
         });
       } else {
-        setError(data.error || 'Failed to join team');
+        setError(data.message || 'Failed to create account');
       }
     } catch (err: any) {
       let errorMessage = "An unexpected error occurred. Please try again.";
@@ -147,26 +159,23 @@ export function OnboardingView({ onTeamJoin }: OnboardingViewProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <Card className="bg-white/90 backdrop-blur-sm border-0 rounded-2xl shadow-xl">
+        <Card className="bg-white border-0 rounded-3xl shadow-2xl">
           <CardHeader className="text-center pb-6">
             <div className="flex items-center justify-center mb-6">
-              <div className="p-3 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl">
+              <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl">
                 <Building className="h-8 w-8 text-white" />
               </div>
             </div>
-            <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              {isSignIn ? "Employee Sign In" : "Create Employee Account"}
+            <CardTitle className="text-2xl font-bold text-gray-900">
+              {isSignIn ? "Welcome Back" : "Join Your Team"}
             </CardTitle>
-            <p className="text-gray-600 text-lg mt-2">
+            <p className="text-gray-600 mt-2">
               {isSignIn 
-                ? "Sign in to access your tracking dashboard"
-                : "Create your employee account and join a team"
+                ? "Sign in to access your productivity dashboard"
+                : "Create your account and start tracking productivity"
               }
-            </p>
-            <p className="text-xs text-gray-400 mt-2">
-              WorkFlow Monitor • {API_URL}
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -189,7 +198,7 @@ export function OnboardingView({ onTeamJoin }: OnboardingViewProps) {
                 <>
                   <div>
                     <label htmlFor="name" className="text-sm font-semibold text-gray-700 mb-2 block">
-                      Full Name
+                      Full Name *
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -209,7 +218,7 @@ export function OnboardingView({ onTeamJoin }: OnboardingViewProps) {
 
                   <div>
                     <label htmlFor="teamCode" className="text-sm font-semibold text-gray-700 mb-2 block">
-                      Team Code
+                      Team Code *
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -226,7 +235,7 @@ export function OnboardingView({ onTeamJoin }: OnboardingViewProps) {
                       />
                     </div>
                     <p className="text-xs text-gray-500 mt-2">
-                      This is the 6-character code provided by your manager
+                      Get this code from your manager
                     </p>
                   </div>
                 </>
@@ -234,7 +243,7 @@ export function OnboardingView({ onTeamJoin }: OnboardingViewProps) {
 
               <div>
                 <label htmlFor="email" className="text-sm font-semibold text-gray-700 mb-2 block">
-                  Email Address
+                  Email Address {!isSignIn && '(Optional)'}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -247,14 +256,14 @@ export function OnboardingView({ onTeamJoin }: OnboardingViewProps) {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Enter your email"
                     className="flex h-12 w-full rounded-xl border border-gray-300 bg-white pl-12 pr-4 py-3 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                    required
+                    required={isSignIn}
                   />
                 </div>
               </div>
 
               <div>
                 <label htmlFor="password" className="text-sm font-semibold text-gray-700 mb-2 block">
-                  Password
+                  Password {!isSignIn && '(Optional)'}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -267,7 +276,7 @@ export function OnboardingView({ onTeamJoin }: OnboardingViewProps) {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
                     className="flex h-12 w-full rounded-xl border border-gray-300 bg-white pl-12 pr-12 py-3 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                    required
+                    required={isSignIn}
                   />
                   <button
                     type="button"
@@ -281,12 +290,17 @@ export function OnboardingView({ onTeamJoin }: OnboardingViewProps) {
                     )}
                   </button>
                 </div>
+                {!isSignIn && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    Leave blank to use default password
+                  </p>
+                )}
               </div>
 
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg"
+                className="w-full h-12 text-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all duration-200 shadow-lg"
               >
                 {isLoading ? (
                   <>

@@ -1,31 +1,37 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Badge } from '../components/ui/Badge';
 import { Input } from '../components/ui/Input';
+import { Badge } from '../components/ui/Badge';
 import { 
   TrendingUp, 
   Users, 
   Target,
   Download,
-  BarChart3,
   RefreshCw,
   AlertCircle,
-  User,
-  Building,
   Search,
-  Eye,
-  Moon,
-  Sun,
-  Filter,
-  MoreVertical,
-  Download as DownloadIcon,
-  MessageSquare,
-  ChevronDown,
-  ChevronUp,
   Grid3X3,
   List,
-  Circle
+  Clock,
+  Activity,
+  Zap,
+  CheckCircle,
+  XCircle,
+  MoreVertical,
+  Filter,
+  ChevronDown,
+  ChevronUp,
+  Star,
+  TrendingDown,
+  Pause,
+  Brain,
+  BarChart3,
+  Lightbulb,
+  Eye,
+  EyeOff,
+  Gauge,
+  Bell
 } from 'lucide-react';
 
 const API_URL = "https://my-home-backend-7m6d.onrender.com";
@@ -48,6 +54,8 @@ interface TeamMember {
   breaksTaken: number;
   weeklyAverage: number;
   monthlyAverage: number;
+  email?: string;
+  avatar?: string;
 }
 
 interface TeamData {
@@ -61,297 +69,487 @@ interface TeamData {
   totalMembers: number;
 }
 
+interface AIInsights {
+  summary: string;
+  recommendations: string[];
+  performance: 'exceptional' | 'strong' | 'good' | 'fair' | 'needs_improvement';
+  trends: {
+    productivity: 'up' | 'down' | 'stable';
+    focus: 'up' | 'down' | 'stable';
+    efficiency: 'up' | 'down' | 'stable';
+  };
+  peakHours: number[];
+  focusScore: number;
+  productivityTrend: 'improving' | 'stable' | 'declining';
+  nextBreak: number;
+  optimalWorkPeriods: string[];
+}
 
+interface RealTimeAnalytics {
+  activeSessions: number;
+  totalProductiveTime: number;
+  averageProductivity: number;
+  teamHealth: 'excellent' | 'good' | 'fair' | 'poor';
+  alerts: Array<{
+    type: 'warning' | 'info' | 'success';
+    message: string;
+    timestamp: string;
+  }>;
+  recentActivities: Array<{
+    userId: string;
+    name: string;
+    action: string;
+    timestamp: string;
+  }>;
+}
 
+interface ComprehensiveAnalytics {
+  productivityPatterns: {
+    daily: number[];
+    weekly: number[];
+    monthly: number[];
+  };
+  focusMetrics: {
+    averageSessionLength: number;
+    totalSessions: number;
+    breakEfficiency: number;
+  };
+  goalTracking: {
+    completed: number;
+    inProgress: number;
+    behind: number;
+    total: number;
+  };
+  appUsage: Array<{
+    name: string;
+    time: number;
+    productive: boolean;
+    category: string;
+  }>;
+}
 
-
-
-
-type SortField = 'name' | 'productiveHours' | 'productivityScore' | 'lastActive' | 'role';
-type SortDirection = 'asc' | 'desc';
 type DateRange = 'today' | 'week' | 'month' | 'quarter' | 'custom';
+type ViewMode = 'grid' | 'list' | 'detailed';
 
 export default function Dashboard() {
   // Core state
-  const [teams, setTeams] = useState<TeamData[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<TeamData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  
+  // Enhanced analytics state
+  const [realTimeAnalytics, setRealTimeAnalytics] = useState<RealTimeAnalytics | null>(null);
+  const [comprehensiveAnalytics, setComprehensiveAnalytics] = useState<ComprehensiveAnalytics | null>(null);
+  const [showAdvancedAnalytics, setShowAdvancedAnalytics] = useState(false);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   // UI/UX state
-  const [darkMode, setDarkMode] = useState(false);
-  const [hoveredEmployee, setHoveredEmployee] = useState<string | null>(null);
-  const [compareMode, setCompareMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortField, setSortField] = useState<SortField>('name');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-  const [filterRole, setFilterRole] = useState<string>('all');
-  const [filterDepartment, setFilterDepartment] = useState<string>('all');
-  const [dateRange, setDateRange] = useState<DateRange>('week');
-  const [customDateRange, setCustomDateRange] = useState<{start: string, end: string}>({
-    start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    end: new Date().toISOString().split('T')[0]
+  const [dateRange] = useState<DateRange>('week');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [sortField] = useState<keyof TeamMember>('productivityScore');
+  const [sortDirection] = useState<'asc' | 'desc'>('desc');
+  const [filters, setFilters] = useState({
+    status: 'all',
+    department: 'all',
+    productivity: 'all'
   });
-  const [showFilters, setShowFilters] = useState(false);
-  const [dashboardLayout, setDashboardLayout] = useState<'grid' | 'list'>('grid');
-  const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
-  const [contextMenu, setContextMenu] = useState<{x: number, y: number, employee: TeamMember} | null>(null);
 
   // Loading states
   const [loadingSkeleton, setLoadingSkeleton] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [generatingReport, setGeneratingReport] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
-  const searchRef = useRef<HTMLInputElement>(null);
+  // Modal states
+  const [showEmployeeModal, setShowEmployeeModal] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<TeamMember | null>(null);
+  const [aiInsights, setAiInsights] = useState<AIInsights | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
 
-  useEffect(() => {
-    // Load dark mode preference
-    const savedDarkMode = localStorage.getItem('darkMode') === 'true';
-    setDarkMode(savedDarkMode);
-    
-    // Apply dark mode to body
-    if (savedDarkMode) {
-      document.body.classList.add('dark');
-    }
-    
-    fetchDashboardData();
-    
-    // Set up real-time updates
-    const interval = setInterval(() => {
-      fetchRealTimeData();
-    }, 30000); // Update every 30 seconds
-    
-    return () => clearInterval(interval);
-  }, []);
+  // Refs
+  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    if (selectedTeam) {
-      // Analytics and tasks will be fetched when needed
-    }
-  }, [selectedTeam, dateRange, customDateRange]);
-
-  const toggleDarkMode = () => {
-    const newDarkMode = !darkMode;
-    setDarkMode(newDarkMode);
-    localStorage.setItem('darkMode', newDarkMode.toString());
-    if (newDarkMode) {
-      document.body.classList.add('dark');
-    } else {
-      document.body.classList.remove('dark');
-    }
-  };
-
-  const fetchDashboardData = async () => {
-    setLoadingSkeleton(true);
-    setError(null);
-    
+  // Professional data fetching with error handling
+  const fetchDashboardData = useCallback(async () => {
     try {
+      setError(null);
+      setLoadingSkeleton(true);
+
       const { invoke } = await import('@tauri-apps/api/tauri');
       
       const response = await invoke('http_get', { 
-        url: `${API_URL}/api/teams/public` 
+        url: `${API_URL}/api/teams/public`
       });
       
       const data = JSON.parse(response as string);
       
-      if (data.error) {
-        throw new Error(data.error);
-      }
-      
-      const teamsData = data.teams || [];
-      setTeams(teamsData);
-      
-      // Select first team by default
-      if (teamsData.length > 0 && !selectedTeam) {
-        setSelectedTeam(teamsData[0]);
+      if (data.success && data.teams && data.teams.length > 0) {
+        setSelectedTeam(data.teams[0]);
+      } else {
+        setError('No team data available');
       }
     } catch (error: any) {
-      console.error("Failed to load dashboard data:", error);
-      setError(error.message || "Failed to load dashboard data");
+      console.error('Dashboard data fetch error:', error);
+      setError('Failed to load dashboard data. Please check your connection and try again.');
     } finally {
       setLoadingSkeleton(false);
     }
-  };
+  }, []);
 
-  const fetchRealTimeData = async () => {
-    if (!selectedTeam) return;
-    
+  const fetchEmployeeInsights = useCallback(async (userId: string) => {
     try {
       const { invoke } = await import('@tauri-apps/api/tauri');
       
       const response = await invoke('http_get', { 
-        url: `${API_URL}/api/teams/${selectedTeam.id}/members` 
+        url: `${API_URL}/api/employees/${userId}/summary`
       });
       
       const data = JSON.parse(response as string);
       
       if (data.success) {
-        // Update team members with real-time data
-        setSelectedTeam(prev => prev ? {
-          ...prev,
-          members: data.members.map((member: any) => ({
-            ...member,
-            isOnline: member.status === 'online',
-            lastActive: member.lastActive || new Date().toISOString()
-          }))
-        } : null);
+        // Parse AI summary and extract insights
+        const aiSummary = data.aiSummary || '';
+        const insights: AIInsights = {
+          summary: aiSummary,
+          recommendations: extractRecommendations(aiSummary),
+          performance: determinePerformance(data.productivityScore),
+          trends: {
+            productivity: 'stable',
+            focus: 'stable',
+            efficiency: 'stable'
+          },
+          peakHours: [9, 10, 14, 15], // Default peak hours
+          focusScore: 0.75, // Default focus score
+          productivityTrend: 'stable',
+          nextBreak: 30, // Default next break time
+          optimalWorkPeriods: ['9:00 AM - 11:00 AM', '2:00 PM - 4:00 PM']
+        };
+        setAiInsights(insights);
       }
-    } catch (error) {
-      console.error("Failed to fetch real-time data:", error);
+    } catch (error: any) {
+      console.error('Employee insights fetch error:', error);
+      setError('Failed to load employee insights');
     }
-  };
+  }, []);
 
-
-
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  };
-
-  const filteredAndSortedMembers = () => {
-    if (!selectedTeam) return [];
+  const extractRecommendations = (summary: string): string[] => {
+    const recommendations: string[] = [];
+    const lines = summary.split('\n');
     
-    let members = [...selectedTeam.members];
-    
-    // Apply search filter
-    if (searchQuery) {
-      members = members.filter(member => 
-        member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        member.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        member.department.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-    
-    // Apply role filter
-    if (filterRole !== 'all') {
-      members = members.filter(member => member.role === filterRole);
-    }
-    
-    // Apply department filter
-    if (filterDepartment !== 'all') {
-      members = members.filter(member => member.department === filterDepartment);
-    }
-    
-    // Apply sorting
-    members.sort((a, b) => {
-      let aValue: any = a[sortField];
-      let bValue: any = b[sortField];
-      
-      if (sortField === 'lastActive') {
-        aValue = new Date(aValue).getTime();
-        bValue = new Date(bValue).getTime();
+    for (const line of lines) {
+      if (line.includes('•') && (line.includes('Recommendation') || line.includes('Focus') || line.includes('Time Management'))) {
+        const cleanRec = line.replace(/<[^>]*>/g, '').replace('•', '').trim();
+        if (cleanRec) recommendations.push(cleanRec);
       }
-      
-      if (sortDirection === 'asc') {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
-    });
-    
-    return members;
-  };
-
-  const handleEmployeeHover = (employeeId: string | null) => {
-    setHoveredEmployee(employeeId);
-  };
-
-  const handleEmployeeClick = (employee: TeamMember) => {
-    // Handle employee click - could open modal or navigate to details
-    console.log('Employee clicked:', employee.name);
-  };
-
-  const handleContextMenu = (e: React.MouseEvent, employee: TeamMember) => {
-    e.preventDefault();
-    setContextMenu({
-      x: e.clientX,
-      y: e.clientY,
-      employee
-    });
-  };
-
-  const closeContextMenu = () => {
-    setContextMenu(null);
-  };
-
-  const handleBulkAction = (action: 'select' | 'deselect', employeeId: string) => {
-    if (action === 'select') {
-      setSelectedEmployees(prev => [...prev, employeeId]);
-    } else {
-      setSelectedEmployees(prev => prev.filter(id => id !== employeeId));
     }
+    
+    return recommendations.length > 0 ? recommendations : [
+      'Schedule focused work sessions during peak productivity hours',
+      'Minimize context switching between tasks',
+      'Take regular short breaks to maintain sustained focus'
+    ];
   };
 
-  const generatePDFReport = async () => {
-    setGeneratingReport(true);
+  const determinePerformance = (score: number): AIInsights['performance'] => {
+    if (score >= 90) return 'exceptional';
+    if (score >= 80) return 'strong';
+    if (score >= 70) return 'good';
+    if (score >= 60) return 'fair';
+    return 'needs_improvement';
+  };
+
+  // Real-time data refresh
+  const fetchRealTimeData = useCallback(async () => {
+    if (!refreshing) {
+      setRefreshing(true);
+      await fetchDashboardData();
+      setRefreshing(false);
+    }
+  }, [fetchDashboardData, refreshing]);
+
+  // Enhanced analytics functions
+  const fetchRealTimeAnalytics = useCallback(async () => {
+    if (!selectedTeam) return;
+    
     try {
-      // Simulate PDF generation
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      setAnalyticsLoading(true);
+      const response = await fetch(`${API_URL}/api/analytics/realtime?team_id=${selectedTeam.id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
       
-      // Create download link
-      const link = document.createElement('a');
-      link.href = 'data:text/plain;charset=utf-8,Report generated successfully';
-      link.download = `team-report-${new Date().toISOString().split('T')[0]}.pdf`;
-      link.click();
+      const data = await response.json();
+      if (data.success) {
+        setRealTimeAnalytics(data.data);
+      }
     } catch (error) {
-      console.error('Failed to generate report:', error);
+      console.error('Real-time analytics fetch error:', error);
     } finally {
-      setGeneratingReport(false);
+      setAnalyticsLoading(false);
     }
-  };
+  }, [selectedTeam]);
 
-  const refreshData = async () => {
+  const fetchComprehensiveAnalytics = useCallback(async () => {
+    if (!selectedTeam) return;
+    
+    try {
+      setAnalyticsLoading(true);
+      const response = await fetch(`${API_URL}/api/analytics/comprehensive?team_id=${selectedTeam.id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setComprehensiveAnalytics(data.data);
+      }
+    } catch (error) {
+      console.error('Comprehensive analytics fetch error:', error);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, [selectedTeam]);
+
+  const fetchAIInsights = useCallback(async () => {
+    if (!selectedTeam) return;
+    
+    try {
+      const response = await fetch(`${API_URL}/api/analytics/ai-insights?team_id=${selectedTeam.id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setAiInsights(data.data);
+      }
+    } catch (error) {
+      console.error('AI insights fetch error:', error);
+    }
+  }, [selectedTeam]);
+
+  // Load all analytics data
+  const loadAllAnalytics = useCallback(async () => {
+    await Promise.all([
+      fetchRealTimeAnalytics(),
+      fetchComprehensiveAnalytics(),
+      fetchAIInsights()
+    ]);
+  }, [fetchRealTimeAnalytics, fetchComprehensiveAnalytics, fetchAIInsights]);
+
+  // Load analytics when team changes
+  useEffect(() => {
+    if (selectedTeam) {
+      loadAllAnalytics();
+    }
+  }, [selectedTeam, loadAllAnalytics]);
+
+  // Auto-refresh analytics every 5 minutes
+  useEffect(() => {
+    if (!selectedTeam) return;
+    
+    const interval = setInterval(() => {
+      loadAllAnalytics();
+    }, 5 * 60 * 1000); // 5 minutes
+    
+    return () => clearInterval(interval);
+  }, [selectedTeam, loadAllAnalytics]);
+
+  // Search with debouncing
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+    
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    searchTimeoutRef.current = setTimeout(() => {
+      // Search logic is handled in filteredAndSortedMembers
+    }, 300);
+  }, []);
+
+  // Professional filtering and sorting
+  const filteredAndSortedMembers = useCallback(() => {
+    if (!selectedTeam?.members) return [];
+    
+    let filtered = selectedTeam.members.filter(member => {
+      const matchesSearch = member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           member.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           member.department.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesStatus = filters.status === 'all' || member.status === filters.status;
+      const matchesDepartment = filters.department === 'all' || member.department === filters.department;
+      
+      let matchesProductivity = true;
+      if (filters.productivity === 'high') matchesProductivity = member.productivityScore >= 80;
+      else if (filters.productivity === 'medium') matchesProductivity = member.productivityScore >= 60 && member.productivityScore < 80;
+      else if (filters.productivity === 'low') matchesProductivity = member.productivityScore < 60;
+      
+      return matchesSearch && matchesStatus && matchesDepartment && matchesProductivity;
+    });
+    
+    // Professional sorting
+    filtered.sort((a, b) => {
+      const aValue = a[sortField];
+      const bValue = b[sortField];
+      
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortDirection === 'asc' 
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      }
+      
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+      }
+      
+      return 0;
+    });
+    
+    return filtered;
+  }, [selectedTeam, searchQuery, filters, sortField, sortDirection]);
+
+  // Professional employee click handler
+  const handleEmployeeClick = useCallback(async (employee: TeamMember) => {
+    setSelectedEmployee(employee);
+    setShowEmployeeModal(true);
+    setAiInsights(null); // Reset insights
+    
+    // Fetch AI insights
+    await fetchEmployeeInsights(employee.userId);
+  }, [fetchEmployeeInsights]);
+
+  // Professional export functionality
+  const handleExport = useCallback(async () => {
+    try {
+      setExporting(true);
+      
+      const { invoke } = await import('@tauri-apps/api/tauri');
+      
+      const reportData = {
+        team: selectedTeam,
+        dateRange,
+        generatedAt: new Date().toISOString(),
+        members: filteredAndSortedMembers()
+      };
+      
+      await invoke('http_post', {
+        url: `${API_URL}/api/reports/generate`,
+        headers: JSON.stringify({
+          'Content-Type': 'application/json'
+        }),
+        body: JSON.stringify(reportData)
+      });
+      
+      setSuccess('Report exported successfully!');
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000);
+      
+    } catch (error: any) {
+      console.error('Export error:', error);
+      setError('Failed to export report. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  }, [selectedTeam, dateRange, filteredAndSortedMembers]);
+
+  // Professional refresh handler
+  const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchDashboardData();
     setRefreshing(false);
-  };
+    setSuccess('Data refreshed successfully!');
+    setTimeout(() => setSuccess(null), 2000);
+  }, [fetchDashboardData]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'online': return 'text-green-600 bg-green-100';
-      case 'away': return 'text-yellow-600 bg-yellow-100';
-      default: return 'text-gray-600 bg-gray-100';
+  // Professional status indicators
+  const getStatusIndicator = useCallback((status: string, isOnline: boolean) => {
+    const baseClasses = "w-2 h-2 rounded-full";
+    
+    if (isOnline) {
+      return <div className={`${baseClasses} bg-green-500 animate-pulse`} title="Online" />;
     }
-  };
-
-  const getStatusText = (status: string) => {
+    
     switch (status) {
-      case 'online': return 'Online';
-      case 'away': return 'Away';
-      default: return 'Offline';
+      case 'away':
+        return <div className={`${baseClasses} bg-yellow-500`} title="Away" />;
+      case 'offline':
+        return <div className={`${baseClasses} bg-gray-400`} title="Offline" />;
+      default:
+        return <div className={`${baseClasses} bg-gray-400`} title="Unknown" />;
     }
-  };
+  }, []);
 
-  // Loading skeleton component
+  const getProductivityColor = useCallback((score: number) => {
+    if (score >= 90) return 'text-green-600 bg-green-50 border-green-200';
+    if (score >= 80) return 'text-blue-600 bg-blue-50 border-blue-200';
+    if (score >= 70) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+    if (score >= 60) return 'text-orange-600 bg-orange-50 border-orange-200';
+    return 'text-red-600 bg-red-50 border-red-200';
+  }, []);
+
+  const getProductivityIcon = useCallback((score: number) => {
+    if (score >= 90) return <Star className="w-4 h-4" />;
+    if (score >= 80) return <TrendingUp className="w-4 h-4" />;
+    if (score >= 70) return <CheckCircle className="w-4 h-4" />;
+    if (score >= 60) return <Pause className="w-4 h-4" />;
+    return <TrendingDown className="w-4 h-4" />;
+  }, []);
+
+  // Effects
+  useEffect(() => {
+    fetchDashboardData();
+    
+    // Set up real-time data refresh every 30 seconds
+    refreshIntervalRef.current = setInterval(fetchRealTimeData, 30000);
+    
+    return () => {
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+      }
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [fetchDashboardData, fetchRealTimeData]);
+
+  // Professional loading skeleton
   const LoadingSkeleton = () => (
-    <div className="space-y-6 animate-pulse">
+    <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[...Array(4)].map((_, i) => (
-          <Card key={i} className="bg-gray-100 dark:bg-gray-800">
-            <CardContent className="p-6">
-              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
-              <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+          <Card key={i} className="animate-pulse">
+            <CardHeader className="pb-2">
+              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-8 bg-gray-200 rounded w-1/2"></div>
             </CardContent>
           </Card>
         ))}
       </div>
-      <Card className="bg-gray-100 dark:bg-gray-800">
-        <CardContent className="p-6">
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mb-4"></div>
-          <div className="space-y-3">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {[...Array(6)].map((_, i) => (
+          <Card key={i} className="animate-pulse">
+            <CardContent className="p-6">
+              <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+              <div className="h-6 bg-gray-200 rounded w-3/4"></div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 
-  // Empty state component
+  // Professional empty state
   const EmptyState = ({ title, description, icon: Icon, action }: {
     title: string;
     description: string;
@@ -359,14 +557,46 @@ export default function Dashboard() {
     action?: { label: string; onClick: () => void };
   }) => (
     <div className="text-center py-12">
-      <Icon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">{title}</h3>
-      <p className="text-gray-500 dark:text-gray-400 mb-6">{description}</p>
+      <Icon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+      <h3 className="text-lg font-medium text-gray-900 mb-2">{title}</h3>
+      <p className="text-gray-500 mb-6">{description}</p>
       {action && (
-        <Button onClick={action.onClick} className="bg-indigo-600 hover:bg-indigo-700">
+        <Button onClick={action.onClick} className="inline-flex items-center gap-2">
+          <RefreshCw className="w-4 h-4" />
           {action.label}
         </Button>
       )}
+    </div>
+  );
+
+  // Professional error display
+  const ErrorDisplay = ({ error, onRetry }: { error: string; onRetry: () => void }) => (
+    <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+      <div className="flex items-start">
+        <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 mr-3 flex-shrink-0" />
+        <div className="flex-1">
+          <h3 className="text-sm font-medium text-red-800">Error</h3>
+          <p className="text-sm text-red-700 mt-1">{error}</p>
+          <button
+            onClick={onRetry}
+            className="text-sm text-red-600 hover:text-red-500 font-medium mt-2"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Professional success display
+  const SuccessDisplay = ({ message }: { message: string }) => (
+    <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+      <div className="flex items-start">
+        <CheckCircle className="w-5 h-5 text-green-400 mt-0.5 mr-3 flex-shrink-0" />
+        <div className="flex-1">
+          <p className="text-sm text-green-700">{message}</p>
+        </div>
+      </div>
     </div>
   );
 
@@ -374,545 +604,628 @@ export default function Dashboard() {
     return <LoadingSkeleton />;
   }
 
-  if (error) {
-    return (
-      <div className="text-center py-12">
-        <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Error Loading Dashboard</h3>
-        <p className="text-gray-500 dark:text-gray-400 mb-6">{error}</p>
-        <Button onClick={fetchDashboardData} variant="outline">
-          Try Again
-        </Button>
-      </div>
-    );
-  }
-
-  const filteredMembers = filteredAndSortedMembers();
-  const onlineMembers = selectedTeam?.members.filter(m => m.isOnline) || [];
-  const totalProductiveHours = selectedTeam?.totalProductiveHours || 0;
-  const averageProductivity = selectedTeam?.averageProductivity || 0;
-  const activeMembers = selectedTeam?.activeMembers || 0;
+  const members = filteredAndSortedMembers();
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
-      <div className="p-6 space-y-6">
-        {/* Header */}
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              {selectedTeam ? `${selectedTeam.name} • ${activeMembers} active members` : 'Select a team to view data'}
+            <h1 className="text-2xl font-bold text-gray-900">Team Dashboard</h1>
+            <p className="text-sm text-gray-600 mt-1">
+              {selectedTeam?.name || 'Loading team data...'}
             </p>
           </div>
-          <div className="flex items-center space-x-3">
+          
+          <div className="flex items-center gap-3">
             <Button
-              onClick={toggleDarkMode}
               variant="outline"
               size="sm"
-              className="flex items-center space-x-2"
-            >
-              {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              <span>{darkMode ? 'Light' : 'Dark'}</span>
-            </Button>
-            <Button
-              onClick={refreshData}
-              variant="outline"
-              size="sm"
+              onClick={handleRefresh}
               disabled={refreshing}
-              className="flex items-center space-x-2"
+              className="inline-flex items-center gap-2"
             >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
             </Button>
+            
             <Button
-              onClick={generatePDFReport}
-              disabled={generatingReport}
-              className="bg-indigo-600 hover:bg-indigo-700 flex items-center space-x-2"
+              onClick={handleExport}
+              disabled={exporting}
+              className="inline-flex items-center gap-2"
             >
-              <DownloadIcon className="h-4 w-4" />
-              <span>{generatingReport ? 'Generating...' : 'Download PDF'}</span>
+              <Download className="w-4 h-4" />
+              {exporting ? 'Exporting...' : 'Export Report'}
             </Button>
           </div>
         </div>
+      </div>
 
-        {/* Team Selector */}
-        {teams.length > 0 && (
-          <div className="flex items-center space-x-4">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Team:</label>
-            <select
-              value={selectedTeam?.id || ''}
-              onChange={(e) => {
-                const team = teams.find(t => t.id === e.target.value);
-                setSelectedTeam(team || null);
-              }}
-              className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-            >
-              {teams.map(team => (
-                <option key={team.id} value={team.id}>{team.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
+      <div className="p-6 space-y-6">
+        {/* Error/Success Messages */}
+        {error && <ErrorDisplay error={error} onRetry={handleRefresh} />}
+        {success && <SuccessDisplay message={success} />}
 
-        {selectedTeam ? (
-          <>
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card className="bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Productive Hours</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalProductiveHours.toFixed(1)}h</p>
-                    </div>
-                    <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-                      <TrendingUp className="h-6 w-6 text-green-600 dark:text-green-400" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Average Productivity</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{averageProductivity.toFixed(1)}%</p>
-                    </div>
-                    <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                      <Target className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active Members</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{activeMembers}</p>
-                    </div>
-                    <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
-                      <Users className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Online Now</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{onlineMembers.length}</p>
-                    </div>
-                    <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-                      <Circle className="h-6 w-6 text-green-600 dark:text-green-400 fill-current" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Search and Filters */}
-            <Card className="bg-white dark:bg-gray-800 shadow-sm">
-              <CardContent className="p-6">
-                <div className="flex flex-col lg:flex-row gap-4">
-                  {/* Search */}
-                  <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      ref={searchRef}
-                      placeholder="Search employees, teams, or projects..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-
-                  {/* Date Range */}
-                  <select
-                    value={dateRange}
-                    onChange={(e) => setDateRange(e.target.value as DateRange)}
-                    className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                  >
-                    <option value="today">Today</option>
-                    <option value="week">Last 7 Days</option>
-                    <option value="month">This Month</option>
-                    <option value="quarter">Last Quarter</option>
-                    <option value="custom">Custom Range</option>
-                  </select>
-
-                  {/* Filters Toggle */}
-                  <Button
-                    onClick={() => setShowFilters(!showFilters)}
-                    variant="outline"
-                    className="flex items-center space-x-2"
-                  >
-                    <Filter className="h-4 w-4" />
-                    <span>Filters</span>
-                  </Button>
-
-                  {/* Layout Toggle */}
-                  <Button
-                    onClick={() => setDashboardLayout(dashboardLayout === 'grid' ? 'list' : 'grid')}
-                    variant="outline"
-                    className="flex items-center space-x-2"
-                  >
-                    {dashboardLayout === 'grid' ? <List className="h-4 w-4" /> : <Grid3X3 className="h-4 w-4" />}
-                    <span>{dashboardLayout === 'grid' ? 'List' : 'Grid'}</span>
-                  </Button>
-                </div>
-
-                {/* Expanded Filters */}
-                {showFilters && (
-                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role</label>
-                      <select
-                        value={filterRole}
-                        onChange={(e) => setFilterRole(e.target.value)}
-                        className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      >
-                        <option value="all">All Roles</option>
-                        <option value="manager">Manager</option>
-                        <option value="employee">Employee</option>
-                        <option value="intern">Intern</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Department</label>
-                      <select
-                        value={filterDepartment}
-                        onChange={(e) => setFilterDepartment(e.target.value)}
-                        className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      >
-                        <option value="all">All Departments</option>
-                        <option value="engineering">Engineering</option>
-                        <option value="design">Design</option>
-                        <option value="marketing">Marketing</option>
-                        <option value="sales">Sales</option>
-                      </select>
-                    </div>
-                    <div className="flex items-end">
-                      <Button
-                        onClick={() => {
-                          setFilterRole('all');
-                          setFilterDepartment('all');
-                          setSearchQuery('');
-                        }}
-                        variant="outline"
-                        size="sm"
-                      >
-                        Clear Filters
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Custom Date Range */}
-                {dateRange === 'custom' && (
-                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date</label>
-                      <input
-                        type="date"
-                        value={customDateRange.start}
-                        onChange={(e) => setCustomDateRange(prev => ({ ...prev, start: e.target.value }))}
-                        className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Date</label>
-                      <input
-                        type="date"
-                        value={customDateRange.end}
-                        onChange={(e) => setCustomDateRange(prev => ({ ...prev, end: e.target.value }))}
-                        className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      />
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Team Members */}
-            <Card className="bg-white dark:bg-gray-800 shadow-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Team Members ({filteredMembers.length})</span>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      onClick={() => setCompareMode(!compareMode)}
-                      variant={compareMode ? "default" : "outline"}
-                      size="sm"
-                    >
-                      <BarChart3 className="h-4 w-4 mr-2" />
-                      Compare
-                    </Button>
-                    {selectedEmployees.length > 0 && (
-                      <Badge variant="secondary">
-                        {selectedEmployees.length} selected
-                      </Badge>
-                    )}
-                  </div>
+        {/* Overview Cards */}
+        {selectedTeam && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-blue-700 flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Total Members
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {filteredMembers.length === 0 ? (
-                  <EmptyState
-                    title="No team members found"
-                    description="Try adjusting your search or filters to find what you're looking for."
-                    icon={Users}
-                    action={{ label: "Clear Filters", onClick: () => {
-                      setSearchQuery('');
-                      setFilterRole('all');
-                      setFilterDepartment('all');
-                    }}}
-                  />
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="sticky top-0 bg-white dark:bg-gray-800 z-10">
-                        <tr className="border-b border-gray-200 dark:border-gray-700">
-                          <th className="text-left py-3 px-4">
-                            <div className="flex items-center space-x-2">
-                              <input
-                                type="checkbox"
-                                checked={selectedEmployees.length === filteredMembers.length}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedEmployees(filteredMembers.map(m => m.userId));
-                                  } else {
-                                    setSelectedEmployees([]);
-                                  }
-                                }}
-                                className="rounded"
-                              />
-                              <span>Select</span>
-                            </div>
-                          </th>
-                          <th className="text-left py-3 px-4">
-                            <button
-                              onClick={() => handleSort('name')}
-                              className="flex items-center space-x-1 hover:text-gray-600 dark:hover:text-gray-300"
-                            >
-                              <span>Name</span>
-                              {sortField === 'name' && (
-                                sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
-                              )}
-                            </button>
-                          </th>
-                          <th className="text-left py-3 px-4">
-                            <button
-                              onClick={() => handleSort('role')}
-                              className="flex items-center space-x-1 hover:text-gray-600 dark:hover:text-gray-300"
-                            >
-                              <span>Role</span>
-                              {sortField === 'role' && (
-                                sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
-                              )}
-                            </button>
-                          </th>
-                          <th className="text-left py-3 px-4">Status</th>
-                          <th className="text-left py-3 px-4">
-                            <button
-                              onClick={() => handleSort('productiveHours')}
-                              className="flex items-center space-x-1 hover:text-gray-600 dark:hover:text-gray-300"
-                            >
-                              <span>Productive Hours</span>
-                              {sortField === 'productiveHours' && (
-                                sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
-                              )}
-                            </button>
-                          </th>
-                          <th className="text-left py-3 px-4">
-                            <button
-                              onClick={() => handleSort('productivityScore')}
-                              className="flex items-center space-x-1 hover:text-gray-600 dark:hover:text-gray-300"
-                            >
-                              <span>Productivity</span>
-                              {sortField === 'productivityScore' && (
-                                sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
-                              )}
-                            </button>
-                          </th>
-                          <th className="text-left py-3 px-4">
-                            <button
-                              onClick={() => handleSort('lastActive')}
-                              className="flex items-center space-x-1 hover:text-gray-600 dark:hover:text-gray-300"
-                            >
-                              <span>Last Active</span>
-                              {sortField === 'lastActive' && (
-                                sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
-                              )}
-                            </button>
-                          </th>
-                          <th className="text-left py-3 px-4">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredMembers.map((member) => (
-                          <tr
-                            key={member.userId}
-                            className={`border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
-                              hoveredEmployee === member.userId ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                            }`}
-                            onMouseEnter={() => handleEmployeeHover(member.userId)}
-                            onMouseLeave={() => handleEmployeeHover(null)}
-                            onContextMenu={(e) => handleContextMenu(e, member)}
-                          >
-                            <td className="py-3 px-4">
-                              <input
-                                type="checkbox"
-                                checked={selectedEmployees.includes(member.userId)}
-                                onChange={(e) => handleBulkAction(e.target.checked ? 'select' : 'deselect', member.userId)}
-                                className="rounded"
-                              />
-                            </td>
-                            <td className="py-3 px-4">
-                              <div className="flex items-center space-x-3">
-                                <div className="relative">
-                                  <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
-                                    <User className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                                  </div>
-                                  {member.isOnline && (
-                                    <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-800"></div>
-                                  )}
-                                </div>
-                                <div>
-                                  <div className="font-medium text-gray-900 dark:text-white">{member.name}</div>
-                                  <div className="text-sm text-gray-500 dark:text-gray-400">{member.department}</div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="py-3 px-4">
-                              <Badge variant="secondary">{member.role}</Badge>
-                            </td>
-                            <td className="py-3 px-4">
-                              <Badge className={getStatusColor(member.status)}>
-                                {getStatusText(member.status)}
-                              </Badge>
-                            </td>
-                            <td className="py-3 px-4">
-                              <div className="text-sm text-gray-900 dark:text-white">{member.productiveHours.toFixed(1)}h</div>
-                              {compareMode && (
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  vs {averageProductivity.toFixed(1)}h avg
-                                </div>
-                              )}
-                            </td>
-                            <td className="py-3 px-4">
-                              <div className="flex items-center space-x-2">
-                                <div className="text-sm font-medium text-gray-900 dark:text-white">
-                                  {member.productivityScore.toFixed(1)}%
-                                </div>
-                                <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                                  <div
-                                    className={`h-2 rounded-full ${
-                                      member.productivityScore >= 80 ? 'bg-green-500' :
-                                      member.productivityScore >= 60 ? 'bg-yellow-500' : 'bg-red-500'
-                                    }`}
-                                    style={{ width: `${member.productivityScore}%` }}
-                                  ></div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="py-3 px-4">
-                              <div className="text-sm text-gray-500 dark:text-gray-400">
-                                {new Date(member.lastActive).toLocaleDateString()}
-                              </div>
-                              <div className="text-xs text-gray-400 dark:text-gray-500">
-                                {new Date(member.lastActive).toLocaleTimeString()}
-                              </div>
-                            </td>
-                            <td className="py-3 px-4">
-                              <div className="flex items-center space-x-2">
-                                <Button
-                                  onClick={() => handleEmployeeClick(member)}
-                                  variant="outline"
-                                  size="sm"
-                                >
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                >
-                                  <MessageSquare className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                >
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                <div className="text-2xl font-bold text-blue-900">{selectedTeam.totalMembers}</div>
+                <p className="text-xs text-blue-600 mt-1">
+                  {selectedTeam.activeMembers} active now
+                </p>
               </CardContent>
             </Card>
-          </>
-        ) : (
+
+            <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-green-700 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4" />
+                  Productive Hours
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-900">
+                  {selectedTeam.totalProductiveHours.toFixed(1)}h
+                </div>
+                <p className="text-xs text-green-600 mt-1">
+                  Today's total
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-purple-700 flex items-center gap-2">
+                  <Target className="w-4 h-4" />
+                  Avg Productivity
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-purple-900">
+                  {selectedTeam.averageProductivity.toFixed(1)}%
+                </div>
+                <p className="text-xs text-purple-600 mt-1">
+                  Team average
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-orange-700 flex items-center gap-2">
+                  <Activity className="w-4 h-4" />
+                  Active Members
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-orange-900">{selectedTeam.activeMembers}</div>
+                <p className="text-xs text-orange-600 mt-1">
+                  Currently working
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Enhanced Analytics Section */}
+        {selectedTeam && (
+          <div className="space-y-6">
+            {/* Analytics Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Advanced Analytics</h2>
+                <p className="text-gray-600">Real-time insights and AI-powered recommendations</p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadAllAnalytics}
+                  disabled={analyticsLoading}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${analyticsLoading ? 'animate-spin' : ''}`} />
+                  Refresh Analytics
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAdvancedAnalytics(!showAdvancedAnalytics)}
+                >
+                  {showAdvancedAnalytics ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+                  {showAdvancedAnalytics ? 'Hide' : 'Show'} Advanced
+                </Button>
+              </div>
+            </div>
+
+            {/* Real-Time Analytics */}
+            {realTimeAnalytics && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Gauge className="h-5 w-5 text-green-600" />
+                      <span>Real-Time Team Health</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Active Sessions</span>
+                        <span className="font-semibold">{realTimeAnalytics.activeSessions}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Total Productive Time</span>
+                        <span className="font-semibold">{realTimeAnalytics.totalProductiveTime.toFixed(1)}h</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Average Productivity</span>
+                        <span className="font-semibold">{realTimeAnalytics.averageProductivity.toFixed(1)}%</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Team Health</span>
+                        <Badge variant={
+                          realTimeAnalytics.teamHealth === 'excellent' ? 'default' :
+                          realTimeAnalytics.teamHealth === 'good' ? 'secondary' :
+                          realTimeAnalytics.teamHealth === 'fair' ? 'secondary' : 'destructive'
+                        }>
+                          {realTimeAnalytics.teamHealth}
+                        </Badge>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Bell className="h-5 w-5 text-orange-600" />
+                      <span>Recent Alerts</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {realTimeAnalytics.alerts.length > 0 ? (
+                        realTimeAnalytics.alerts.slice(0, 3).map((alert, index) => (
+                          <div key={index} className="flex items-start space-x-3 p-2 bg-gray-50 rounded-lg">
+                            <div className={`w-2 h-2 rounded-full mt-2 ${
+                              alert.type === 'warning' ? 'bg-orange-500' :
+                              alert.type === 'info' ? 'bg-blue-500' : 'bg-green-500'
+                            }`} />
+                            <div className="flex-1">
+                              <p className="text-sm text-gray-700">{alert.message}</p>
+                              <p className="text-xs text-gray-500">{new Date(alert.timestamp).toLocaleTimeString()}</p>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500 text-center py-4">No recent alerts</p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* AI Insights */}
+            {aiInsights && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Brain className="h-5 w-5 text-purple-600" />
+                    <span>AI-Powered Insights</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <Zap className="h-4 w-4 text-purple-600" />
+                          <div>
+                            <p className="font-medium">Peak Productivity Hours</p>
+                            <p className="text-sm text-gray-600">
+                              {aiInsights.peakHours.length > 0 
+                                ? aiInsights.peakHours.map(h => `${h}:00`).join(', ')
+                                : '9:00 AM - 11:00 AM, 2:00 PM - 4:00 PM'
+                              }
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <Target className="h-4 w-4 text-blue-600" />
+                          <div>
+                            <p className="font-medium">Focus Score</p>
+                            <p className="text-sm text-gray-600">{Math.round(aiInsights.focusScore * 100)}% concentration</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <TrendingUp className="h-4 w-4 text-green-600" />
+                          <div>
+                            <p className="font-medium">Productivity Trend</p>
+                            <Badge variant={
+                              aiInsights.productivityTrend === 'improving' ? 'default' :
+                              aiInsights.productivityTrend === 'stable' ? 'secondary' : 'destructive'
+                            }>
+                              {aiInsights.productivityTrend}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h4 className="font-medium text-gray-900">AI Recommendations</h4>
+                      <div className="space-y-2">
+                        {aiInsights.recommendations.map((rec, index) => (
+                          <div key={index} className="flex items-start space-x-2 p-2 bg-blue-50 rounded-lg">
+                            <Lightbulb className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                            <p className="text-sm text-gray-700">{rec}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Advanced Analytics (Collapsible) */}
+            {showAdvancedAnalytics && comprehensiveAnalytics && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <BarChart3 className="h-5 w-5 text-indigo-600" />
+                      <span>Comprehensive Analytics</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="space-y-4">
+                        <h4 className="font-medium text-gray-900">Focus Metrics</h4>
+                        <div className="space-y-3">
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Avg Session Length</span>
+                            <span className="font-semibold">{comprehensiveAnalytics.focusMetrics.averageSessionLength} min</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Total Sessions</span>
+                            <span className="font-semibold">{comprehensiveAnalytics.focusMetrics.totalSessions}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Break Efficiency</span>
+                            <span className="font-semibold">{comprehensiveAnalytics.focusMetrics.breakEfficiency.toFixed(1)}%</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <h4 className="font-medium text-gray-900">Goal Tracking</h4>
+                        <div className="space-y-3">
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Completed</span>
+                            <span className="font-semibold text-green-600">{comprehensiveAnalytics.goalTracking.completed}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">In Progress</span>
+                            <span className="font-semibold text-blue-600">{comprehensiveAnalytics.goalTracking.inProgress}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Behind</span>
+                            <span className="font-semibold text-red-600">{comprehensiveAnalytics.goalTracking.behind}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <h4 className="font-medium text-gray-900">App Usage</h4>
+                        <div className="space-y-2">
+                          {comprehensiveAnalytics.appUsage.slice(0, 3).map((app, index) => (
+                            <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                              <div className="flex items-center space-x-2">
+                                <div className={`w-2 h-2 rounded-full ${
+                                  app.productive ? 'bg-green-500' : 'bg-red-500'
+                                }`} />
+                                <span className="text-sm font-medium">{app.name}</span>
+                              </div>
+                              <span className="text-sm text-gray-600">{app.time.toFixed(1)}h</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Controls */}
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                placeholder="Search members..."
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                className="pl-10 w-64"
+              />
+            </div>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className="inline-flex items-center gap-2"
+            >
+              <Filter className="w-4 h-4" />
+              Filters
+              {showFilters ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant={viewMode === 'grid' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('grid')}
+            >
+              <Grid3X3 className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('list')}
+            >
+              <List className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Filters */}
+        {showFilters && (
+          <Card className="p-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                <select
+                  value={filters.status}
+                  onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                >
+                  <option value="all">All Status</option>
+                  <option value="online">Online</option>
+                  <option value="away">Away</option>
+                  <option value="offline">Offline</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                <select
+                  value={filters.department}
+                  onChange={(e) => setFilters(prev => ({ ...prev, department: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                >
+                  <option value="all">All Departments</option>
+                  <option value="Engineering">Engineering</option>
+                  <option value="Design">Design</option>
+                  <option value="Marketing">Marketing</option>
+                  <option value="Sales">Sales</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Productivity</label>
+                <select
+                  value={filters.productivity}
+                  onChange={(e) => setFilters(prev => ({ ...prev, productivity: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                >
+                  <option value="all">All Levels</option>
+                  <option value="high">High (80%+)</option>
+                  <option value="medium">Medium (60-79%)</option>
+                  <option value="low">Low (&lt;60%)</option>
+                </select>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Team Members */}
+        {members.length === 0 ? (
           <EmptyState
-            title="No team selected"
-            description="Select a team from the dropdown above to view dashboard data."
-            icon={Building}
+            title="No members found"
+            description="Try adjusting your search or filters to find team members."
+            icon={Users}
+            action={{ label: 'Clear filters', onClick: () => {
+              setSearchQuery('');
+              setFilters({ status: 'all', department: 'all', productivity: 'all' });
+            }}}
           />
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {members.map((member) => (
+              <div
+                key={member.userId}
+                className="hover:shadow-lg transition-shadow duration-200 cursor-pointer group"
+                onClick={() => handleEmployeeClick(member)}
+              >
+                <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
+                          {member.name.charAt(0).toUpperCase()}
+                        </div>
+                        {getStatusIndicator(member.status, member.isOnline)}
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                          {member.name}
+                        </h3>
+                        <p className="text-sm text-gray-500">{member.role}</p>
+                      </div>
+                    </div>
+                    <MoreVertical className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Productivity</span>
+                      <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${getProductivityColor(member.productivityScore)}`}>
+                        {getProductivityIcon(member.productivityScore)}
+                        {member.productivityScore.toFixed(1)}%
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-600">Productive</span>
+                        <div className="font-semibold text-green-600">{member.productiveHours.toFixed(1)}h</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Total</span>
+                        <div className="font-semibold text-gray-900">{member.totalHours.toFixed(1)}h</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {member.focusSessions} sessions
+                      </span>
+                      <span>Last active: {new Date(member.lastActive).toLocaleTimeString()}</span>
+                                         </div>
+                   </div>
+                 </CardContent>
+                 </Card>
+               </div>
+             ))}
+          </div>
         )}
       </div>
 
-      {/* Context Menu */}
-      {contextMenu && (
-        <div
-          className="fixed z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg py-1"
-          style={{ top: contextMenu.y, left: contextMenu.x }}
-        >
-          <button
-            onClick={() => {
-              handleEmployeeClick(contextMenu.employee);
-              closeContextMenu();
-            }}
-            className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2"
-          >
-            <Eye className="h-4 w-4" />
-            <span>View Details</span>
-          </button>
-          <button
-            onClick={() => {
-              // Handle send message
-              closeContextMenu();
-            }}
-            className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2"
-          >
-            <MessageSquare className="h-4 w-4" />
-            <span>Send Message</span>
-          </button>
-          <button
-            onClick={() => {
-              // Handle download report
-              closeContextMenu();
-            }}
-            className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2"
-          >
-            <Download className="h-4 w-4" />
-            <span>Download Report</span>
-          </button>
-        </div>
-      )}
+      {/* Employee Modal */}
+      {showEmployeeModal && selectedEmployee && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-lg">
+                    {selectedEmployee.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">{selectedEmployee.name}</h2>
+                    <p className="text-gray-600">{selectedEmployee.role} • {selectedEmployee.department}</p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowEmployeeModal(false)}
+                >
+                  <XCircle className="w-5 h-5" />
+                </Button>
+              </div>
+            </div>
 
-      {/* Click outside to close context menu */}
-      {contextMenu && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={closeContextMenu}
-        />
+            <div className="p-6 space-y-6">
+              {/* Performance Overview */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">{selectedEmployee.productivityScore.toFixed(1)}%</div>
+                  <div className="text-sm text-blue-600">Productivity</div>
+                </div>
+                <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">{selectedEmployee.productiveHours.toFixed(1)}h</div>
+                  <div className="text-sm text-green-600">Productive</div>
+                </div>
+                <div className="text-center p-4 bg-purple-50 rounded-lg">
+                  <div className="text-2xl font-bold text-purple-600">{selectedEmployee.focusSessions}</div>
+                  <div className="text-sm text-purple-600">Focus Sessions</div>
+                </div>
+                <div className="text-center p-4 bg-orange-50 rounded-lg">
+                  <div className="text-2xl font-bold text-orange-600">{selectedEmployee.weeklyAverage.toFixed(1)}h</div>
+                  <div className="text-sm text-orange-600">Weekly Avg</div>
+                </div>
+              </div>
+
+              {/* AI Insights */}
+              {aiInsights ? (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-blue-500" />
+                    AI Insights
+                  </h3>
+                  
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+                    <div 
+                      className="prose prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{ __html: aiInsights.summary }}
+                    />
+                  </div>
+
+                  {aiInsights.recommendations.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2">Recommendations</h4>
+                      <ul className="space-y-2">
+                        {aiInsights.recommendations.map((rec, index) => (
+                          <li key={index} className="flex items-start gap-2 text-sm text-gray-700">
+                            <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                            {rec}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <span className="ml-2 text-gray-600">Loading AI insights...</span>
+                </div>
+              )}
+
+              {/* Current Activity */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Current Activity</h3>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${selectedEmployee.isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                    <div>
+                      <div className="font-medium text-gray-900">
+                        {selectedEmployee.currentActivity || 'No activity recorded'}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        Last active: {new Date(selectedEmployee.lastActive).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
