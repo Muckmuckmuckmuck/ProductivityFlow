@@ -1,193 +1,209 @@
 #!/usr/bin/env python3
 """
-Database Migration Script
-Updates the database schema to support enhanced tracking features
+Database Migration Script - ProductivityFlow
+Adds reset_token and reset_expires fields to User table for forgot password functionality
 """
 
-from application import application, db, Activity, AppSession, ProductivityEvent, DailySummary
-from sqlalchemy import text
-import logging
-
-logger = logging.getLogger(__name__)
+import os
+import sqlite3
+from datetime import datetime
 
 def migrate_database():
-    """Migrate the database to support enhanced tracking features"""
-    with application.app_context():
-        print("🔄 Starting database migration...")
+    """Migrate the database to add forgot password fields"""
+    print("🔧 DATABASE MIGRATION - PRODUCTIVITYFLOW")
+    print("=" * 60)
+    
+    # Database file path
+    db_path = 'productivityflow.db'
+    
+    if not os.path.exists(db_path):
+        print(f"❌ Database file not found: {db_path}")
+        print("Creating new database with required fields...")
+        return create_new_database(db_path)
+    
+    try:
+        # Connect to existing database
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
         
-        try:
-            # Step 1: Check current database structure
-            print("\n1. Checking current database structure...")
-            
-            # Check activities table structure
-            result = db.session.execute(text("PRAGMA table_info(activities)"))
-            existing_columns = [row[1] for row in result.fetchall()]
-            print(f"Current columns in activities table: {existing_columns}")
-            
-            # Step 2: Add new columns to activities table
-            print("\n2. Adding new columns to activities table...")
-            
-            new_columns = [
-                ("timestamp", "DATETIME DEFAULT CURRENT_TIMESTAMP"),
-                ("app_category", "VARCHAR(100)"),
-                ("window_title", "VARCHAR(500)"),
-                ("app_url", "VARCHAR(1000)"),
-                ("idle_time", "FLOAT DEFAULT 0.0"),
-                ("break_time", "FLOAT DEFAULT 0.0"),
-                ("total_active_time", "FLOAT DEFAULT 0.0"),
-                ("productivity_score", "FLOAT DEFAULT 0.0"),
-                ("focus_time", "FLOAT DEFAULT 0.0"),
-                ("distraction_count", "INTEGER DEFAULT 0"),
-                ("task_switches", "INTEGER DEFAULT 0"),
-                ("cpu_usage", "FLOAT DEFAULT 0.0"),
-                ("memory_usage", "FLOAT DEFAULT 0.0"),
-                ("network_activity", "BOOLEAN DEFAULT FALSE"),
-                ("mouse_clicks", "INTEGER DEFAULT 0"),
-                ("keyboard_activity", "BOOLEAN DEFAULT FALSE"),
-                ("screen_time", "FLOAT DEFAULT 0.0"),
-                ("session_id", "VARCHAR(100)"),
-                ("device_info", "VARCHAR(500)"),
-                ("notes", "TEXT")
-            ]
-            
-            for column_name, column_def in new_columns:
-                if column_name not in existing_columns:
-                    print(f"Adding column: {column_name}")
-                    try:
-                        db.session.execute(text(f"ALTER TABLE activities ADD COLUMN {column_name} {column_def}"))
-                        print(f"✅ Added column: {column_name}")
-                    except Exception as e:
-                        print(f"⚠️  Column {column_name} might already exist: {e}")
-                else:
-                    print(f"✅ Column {column_name} already exists")
-            
-            db.session.commit()
-            
-            # Step 3: Create new tables
-            print("\n3. Creating new tables...")
-            
-            # Create app_sessions table
-            print("Creating app_sessions table...")
-            try:
-                db.session.execute(text("""
-                    CREATE TABLE IF NOT EXISTS app_sessions (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        user_id VARCHAR(80) NOT NULL,
-                        team_id VARCHAR(80) NOT NULL,
-                        session_id VARCHAR(100) NOT NULL,
-                        start_time DATETIME NOT NULL,
-                        end_time DATETIME,
-                        app_name VARCHAR(255) NOT NULL,
-                        app_category VARCHAR(100),
-                        window_title VARCHAR(500),
-                        url VARCHAR(1000),
-                        duration FLOAT DEFAULT 0.0,
-                        productivity_score FLOAT DEFAULT 0.0,
-                        activity_level VARCHAR(50) DEFAULT 'low',
-                        focus_score FLOAT DEFAULT 0.0,
-                        mouse_clicks INTEGER DEFAULT 0,
-                        keyboard_events INTEGER DEFAULT 0,
-                        scroll_events INTEGER DEFAULT 0,
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                    )
-                """))
-                print("✅ app_sessions table created")
-            except Exception as e:
-                print(f"⚠️  app_sessions table might already exist: {e}")
-            
-            # Create productivity_events table
-            print("Creating productivity_events table...")
-            try:
-                db.session.execute(text("""
-                    CREATE TABLE IF NOT EXISTS productivity_events (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        user_id VARCHAR(80) NOT NULL,
-                        team_id VARCHAR(80) NOT NULL,
-                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        event_type VARCHAR(100) NOT NULL,
-                        event_data TEXT,
-                        app_name VARCHAR(255),
-                        app_category VARCHAR(100),
-                        window_title VARCHAR(500),
-                        duration FLOAT DEFAULT 0.0,
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                    )
-                """))
-                print("✅ productivity_events table created")
-            except Exception as e:
-                print(f"⚠️  productivity_events table might already exist: {e}")
-            
-            # Create daily_summaries table
-            print("Creating daily_summaries table...")
-            try:
-                db.session.execute(text("""
-                    CREATE TABLE IF NOT EXISTS daily_summaries (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        user_id VARCHAR(80) NOT NULL,
-                        team_id VARCHAR(80) NOT NULL,
-                        date DATE NOT NULL,
-                        total_productive_time FLOAT DEFAULT 0.0,
-                        total_unproductive_time FLOAT DEFAULT 0.0,
-                        total_idle_time FLOAT DEFAULT 0.0,
-                        total_break_time FLOAT DEFAULT 0.0,
-                        total_screen_time FLOAT DEFAULT 0.0,
-                        overall_productivity_score FLOAT DEFAULT 0.0,
-                        focus_score FLOAT DEFAULT 0.0,
-                        distraction_count INTEGER DEFAULT 0,
-                        task_switch_count INTEGER DEFAULT 0,
-                        most_used_app VARCHAR(255),
-                        most_productive_app VARCHAR(255),
-                        app_usage_breakdown TEXT,
-                        goals_met INTEGER DEFAULT 0,
-                        total_goals INTEGER DEFAULT 0,
-                        achievements TEXT,
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                    )
-                """))
-                print("✅ daily_summaries table created")
-            except Exception as e:
-                print(f"⚠️  daily_summaries table might already exist: {e}")
-            
-            db.session.commit()
-            
-            # Step 4: Verify migration
-            print("\n4. Verifying migration...")
-            
-            # Check activities table structure again
-            result = db.session.execute(text("PRAGMA table_info(activities)"))
-            updated_columns = [row[1] for row in result.fetchall()]
-            print(f"Updated columns in activities table: {len(updated_columns)} columns")
-            
-            # Check new tables exist
-            tables_to_check = ['app_sessions', 'productivity_events', 'daily_summaries']
-            for table in tables_to_check:
-                try:
-                    result = db.session.execute(text(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table}'"))
-                    if result.fetchone():
-                        print(f"✅ {table} table exists")
-                    else:
-                        print(f"❌ {table} table missing")
-                except Exception as e:
-                    print(f"❌ Error checking {table} table: {e}")
-            
-            print("\n🎉 Database migration completed successfully!")
-            print("\n📊 Migration Summary:")
-            print(f"- Added {len(new_columns)} new columns to activities table")
-            print(f"- Created 3 new tables for enhanced tracking")
-            print("- All enhanced tracking features are now ready to use")
-            
-            return True
-            
-        except Exception as e:
-            logger.error(f"Database migration failed: {str(e)}")
-            db.session.rollback()
-            print(f"❌ Database migration failed: {e}")
+        print(f"✅ Connected to database: {db_path}")
+        
+        # Check if fields already exist
+        cursor.execute("PRAGMA table_info(users)")
+        columns = [column[1] for column in cursor.fetchall()]
+        
+        print(f"📋 Current columns in users table: {columns}")
+        
+        # Add reset_token field if it doesn't exist
+        if 'reset_token' not in columns:
+            print("➕ Adding reset_token column...")
+            cursor.execute("ALTER TABLE users ADD COLUMN reset_token TEXT")
+            print("✅ reset_token column added successfully")
+        else:
+            print("✅ reset_token column already exists")
+        
+        # Add reset_expires field if it doesn't exist
+        if 'reset_expires' not in columns:
+            print("➕ Adding reset_expires column...")
+            cursor.execute("ALTER TABLE users ADD COLUMN reset_expires DATETIME")
+            print("✅ reset_expires column added successfully")
+        else:
+            print("✅ reset_expires column already exists")
+        
+        # Commit changes
+        conn.commit()
+        
+        # Verify the migration
+        cursor.execute("PRAGMA table_info(users)")
+        updated_columns = [column[1] for column in cursor.fetchall()]
+        print(f"📋 Updated columns in users table: {updated_columns}")
+        
+        # Check if all required fields are present
+        required_fields = ['reset_token', 'reset_expires']
+        missing_fields = [field for field in required_fields if field not in updated_columns]
+        
+        if missing_fields:
+            print(f"❌ Missing fields: {missing_fields}")
             return False
+        else:
+            print("✅ All required fields are present")
+        
+        conn.close()
+        print("🎉 Database migration completed successfully!")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Migration failed: {str(e)}")
+        return False
+
+def create_new_database(db_path):
+    """Create a new database with all required fields"""
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        # Create teams table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS teams (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                employee_code TEXT UNIQUE NOT NULL,
+                manager_code TEXT UNIQUE NOT NULL
+            )
+        ''')
+        
+        # Create users table with all required fields
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id TEXT PRIMARY KEY,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                name TEXT NOT NULL,
+                team_id TEXT,
+                role TEXT DEFAULT 'employee' NOT NULL,
+                reset_token TEXT,
+                reset_expires DATETIME,
+                FOREIGN KEY (team_id) REFERENCES teams (id)
+            )
+        ''')
+        
+        # Create activities table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS activities (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                team_id TEXT NOT NULL,
+                date DATE NOT NULL,
+                active_app TEXT,
+                productive_hours REAL DEFAULT 0.0,
+                unproductive_hours REAL DEFAULT 0.0
+            )
+        ''')
+        
+        conn.commit()
+        conn.close()
+        
+        print("✅ New database created with all required fields")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Failed to create new database: {str(e)}")
+        return False
+
+def verify_migration():
+    """Verify that the migration was successful"""
+    print("\n🔍 VERIFYING MIGRATION")
+    print("-" * 40)
+    
+    try:
+        conn = sqlite3.connect('productivityflow.db')
+        cursor = conn.cursor()
+        
+        # Check users table structure
+        cursor.execute("PRAGMA table_info(users)")
+        columns = cursor.fetchall()
+        
+        print("📋 Users table structure:")
+        for column in columns:
+            print(f"  - {column[1]} ({column[2]})")
+        
+        # Check if required fields exist
+        column_names = [column[1] for column in columns]
+        required_fields = ['reset_token', 'reset_expires']
+        
+        for field in required_fields:
+            if field in column_names:
+                print(f"✅ {field}: Present")
+            else:
+                print(f"❌ {field}: Missing")
+        
+        conn.close()
+        
+        # Test the forgot password functionality
+        print("\n🧪 Testing forgot password functionality...")
+        test_forgot_password_functionality()
+        
+    except Exception as e:
+        print(f"❌ Verification failed: {str(e)}")
+
+def test_forgot_password_functionality():
+    """Test the forgot password functionality after migration"""
+    try:
+        from application_with_forgot_password import application, db, User
+        
+        with application.app_context():
+            # Test creating a user with reset fields
+            test_user = User(
+                id='test_user_123',
+                email='test@example.com',
+                password_hash='test_hash',
+                name='Test User',
+                reset_token='test_token_123',
+                reset_expires=datetime.now()
+            )
+            
+            db.session.add(test_user)
+            db.session.commit()
+            
+            print("✅ User created with reset fields successfully")
+            
+            # Clean up test user
+            db.session.delete(test_user)
+            db.session.commit()
+            
+            print("✅ Test user cleaned up")
+            
+    except Exception as e:
+        print(f"❌ Forgot password functionality test failed: {str(e)}")
 
 if __name__ == "__main__":
+    print("🚀 Starting database migration...")
     success = migrate_database()
+    
     if success:
-        print("\n✅ Migration successful! Enhanced tracking features are now available.")
+        verify_migration()
+        print("\n🎉 MIGRATION COMPLETED SUCCESSFULLY!")
+        print("The database now supports forgot password functionality.")
     else:
-        print("\n❌ Migration failed. Please check the errors above.")
+        print("\n❌ MIGRATION FAILED!")
+        print("Please check the error messages above.")
