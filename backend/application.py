@@ -418,13 +418,13 @@ class RealTimeAnalytics:
             self.active_sessions[session_key] = {
                 'user_id': user_id,
                 'team_id': team_id,
-                'start_time': datetime.utcnow(),
+                'start_time': datetime.now(timezone.utc),
                 'activities': [],
                 'current_status': 'active'
             }
         
         self.active_sessions[session_key]['activities'].append(activity_data)
-        self.active_sessions[session_key]['last_update'] = datetime.utcnow()
+        self.active_sessions[session_key]['last_update'] = datetime.now(timezone.utc)
         
         # Update team metrics
         self._update_team_metrics(team_id, activity_data)
@@ -436,10 +436,10 @@ class RealTimeAnalytics:
                 'active_members': 0,
                 'total_productivity': 0,
                 'current_activities': [],
-                'last_updated': datetime.utcnow()
-            }
+                            'last_updated': datetime.now(timezone.utc)
+        }
         
-        self.team_metrics[team_id]['last_updated'] = datetime.utcnow()
+        self.team_metrics[team_id]['last_updated'] = datetime.now(timezone.utc)
         self.team_metrics[team_id]['current_activities'].append(activity_data)
         
         # Keep only recent activities (last 100)
@@ -457,7 +457,7 @@ class RealTimeAnalytics:
         # Calculate real-time metrics
         active_members = len([k for k, v in self.active_sessions.items() 
                             if v['team_id'] == team_id and 
-                            (datetime.utcnow() - v['last_update']).seconds < 300])
+                            (datetime.now(timezone.utc) - v['last_update']).seconds < 300])
         
         recent_activities = metrics['current_activities'][-20:]  # Last 20 activities
         productivity_score = sum(1 for a in recent_activities if a.get('productive', False)) / len(recent_activities) if recent_activities else 0
@@ -478,7 +478,7 @@ class RealTimeAnalytics:
             return {'status': 'inactive', 'score': 0.5}
         
         # Calculate health metrics
-        active_count = len([s for s in team_sessions if (datetime.utcnow() - s['last_update']).seconds < 300])
+        active_count = len([s for s in team_sessions if (datetime.now(timezone.utc) - s['last_update']).seconds < 300])
         total_members = len(team_sessions)
         
         health_score = active_count / total_members if total_members > 0 else 0
@@ -504,7 +504,7 @@ class RealTimeAnalytics:
             'active_members': 0,
             'productivity_score': 0.0,
             'current_activities': [],
-            'last_updated': datetime.utcnow().isoformat(),
+            'last_updated': datetime.now(timezone.utc).isoformat(),
             'team_health': {'status': 'inactive', 'score': 0.0}
         }
 
@@ -540,14 +540,14 @@ class DataProcessor:
             'behavior_patterns': results[2],
             'goal_tracking': results[3],
             'ai_insights': ai_engine.analyze_productivity_patterns(activities),
-            'generated_at': datetime.utcnow().isoformat()
+            'generated_at': datetime.now(timezone.utc).isoformat()
         }
     
     async def _get_user_activities(self, user_id: str, team_id: str) -> List[Dict]:
         """Get user activities from database"""
         try:
             # Get activities from the last 30 days
-            thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+            thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
             
             activities = Activity.query.filter(
                 Activity.user_id == user_id,
@@ -783,7 +783,7 @@ class DataProcessor:
             return {'completed': 0, 'target': 8, 'progress': 0.0}
         
         today_activities = [a for a in activities 
-                          if datetime.fromisoformat(a['timestamp']).date() == datetime.utcnow().date()]
+                          if datetime.fromisoformat(a['timestamp']).date() == datetime.now(timezone.utc).date()]
         
         productive_hours = sum(a.get('productive_hours', 0) for a in today_activities)
         target_hours = 8
@@ -800,7 +800,7 @@ class DataProcessor:
         if not activities:
             return {'completed': 0, 'target': 40, 'progress': 0.0}
         
-        week_start = datetime.utcnow() - timedelta(days=datetime.utcnow().weekday())
+        week_start = datetime.now(timezone.utc) - timedelta(days=datetime.now(timezone.utc).weekday())
         week_activities = [a for a in activities 
                           if datetime.fromisoformat(a['timestamp']) >= week_start]
         
@@ -1105,8 +1105,8 @@ class Team(db.Model):
     manager_code = db.Column(db.String(10), unique=True, nullable=False, index=True)
     description = db.Column(db.Text, nullable=True)
     settings = db.Column(db.JSON, nullable=True)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(datetime.UTC), nullable=False)
-    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(datetime.UTC), onupdate=lambda: datetime.now(datetime.UTC))
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     # Relationships
     users = db.relationship('User', backref='team', lazy='dynamic')
@@ -1127,8 +1127,8 @@ class User(db.Model):
     settings = db.Column(db.JSON, nullable=True)
     last_login = db.Column(db.DateTime, nullable=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(datetime.UTC), nullable=False)
-    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(datetime.UTC), onupdate=lambda: datetime.now(datetime.UTC))
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     reset_token = db.Column(db.String(255), nullable=True)
     reset_token_expires = db.Column(db.DateTime, nullable=True)
     email_verified = db.Column(db.Boolean, default=False, nullable=False)
@@ -1152,15 +1152,15 @@ class Activity(db.Model):
     focus_sessions = db.Column(db.Integer, default=0, nullable=False)
     breaks_taken = db.Column(db.Integer, default=0, nullable=False)
     productivity_score = db.Column(db.Float, default=0.0, nullable=False)
-    last_active = db.Column(db.DateTime, default=lambda: datetime.now(datetime.UTC), nullable=False)
+    last_active = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     activity_metadata = db.Column(db.JSON, nullable=True)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(datetime.UTC), nullable=False)
-    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(datetime.UTC), onupdate=lambda: datetime.now(datetime.UTC))
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 # Professional utility functions
 def generate_secure_id(prefix: str) -> str:
     """Generate secure, unique IDs with timestamp and random suffix"""
-    timestamp = int(datetime.utcnow().timestamp() * 1000)
+    timestamp = int(datetime.now(timezone.utc).timestamp() * 1000)
     random_suffix = random.randint(1000, 9999)
     return f"{prefix}_{timestamp}_{random_suffix}"
 
@@ -1187,8 +1187,8 @@ def create_jwt_token(user_id: str, team_id: str, role: str, expires_in: int = 86
         'user_id': user_id,
         'team_id': team_id,
         'role': role,
-        'exp': datetime.utcnow() + timedelta(seconds=expires_in),
-        'iat': datetime.utcnow(),
+        'exp': datetime.now(timezone.utc) + timedelta(seconds=expires_in),
+        'iat': datetime.now(timezone.utc),
         'iss': 'productivityflow',
         'aud': 'productivityflow-users'
     }
@@ -1341,7 +1341,7 @@ def health_check():
         
         return jsonify({
             'status': 'healthy',
-            'timestamp': datetime.now(datetime.UTC).isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
             'version': '3.2.0',
             'environment': os.environ.get('FLASK_ENV', 'development'),
             'database': 'connected',
@@ -1355,7 +1355,7 @@ def health_check():
         logger.error(f"Health check failed: {e}")
         return jsonify({
             'status': 'unhealthy',
-            'timestamp': datetime.now(datetime.UTC).isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
             'error': str(e)
         }), 503
 
@@ -1479,7 +1479,7 @@ def login_manager():
             return jsonify({'error': True, 'message': 'Invalid credentials'}), 401
         
         # Update last login
-        user.last_login = datetime.utcnow()
+        user.last_login = datetime.now(timezone.utc)
         db.session.commit()
         
         # Generate token
@@ -1545,7 +1545,7 @@ def employee_login():
             return jsonify({'error': True, 'message': 'Either email/password or team_code/user_name is required'}), 400
         
         # Update last login
-        user.last_login = datetime.utcnow()
+        user.last_login = datetime.now(timezone.utc)
         db.session.commit()
         
         # Generate token
