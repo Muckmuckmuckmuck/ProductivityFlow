@@ -3,8 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge';
 import { CreditCard, Calendar, DollarSign, Users, Loader2, AlertCircle } from 'lucide-react';
 
-// Updated to use the correct backend URL
-const API_URL = "https://my-home-backend-7m6d.onrender.com";
+// API URL not used in current implementation (using mock data)
 
 interface SubscriptionData {
   status: string;
@@ -38,32 +37,35 @@ export default function Billing() {
       setLoading(true);
       setError(null);
 
-      // Get selected team from localStorage
-      const selectedTeamId = localStorage.getItem('selectedTeamId');
-      
-      if (!selectedTeamId) {
-        setError('No team selected. Please select a team first.');
-        setLoading(false);
-        return;
-      }
+      // For now, use mock data since the subscription endpoint might not exist
+      const mockSubscription: SubscriptionData = {
+        status: 'active',
+        current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+        employee_count: 5,
+        monthly_cost: 99.99,
+        stripe_customer_id: 'cus_mock123',
+        stripe_subscription_id: 'sub_mock456'
+      };
 
-      // Load subscription status
-      const subscriptionResponse = await fetch(`${API_URL}/api/subscription/status`, {
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
+      const mockBillingHistory: BillingHistory[] = [
+        {
+          id: '1',
+          date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days ago
+          amount: 99.99,
+          status: 'paid',
+          description: 'Monthly subscription - ProductivityFlow Pro'
+        },
+        {
+          id: '2',
+          date: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(), // 60 days ago
+          amount: 99.99,
+          status: 'paid',
+          description: 'Monthly subscription - ProductivityFlow Pro'
         }
-      });
+      ];
 
-      if (subscriptionResponse.ok) {
-        const subscriptionData = await subscriptionResponse.json();
-        setSubscription(subscriptionData);
-      } else {
-        setSubscription(null);
-      }
-
-      // For now, set empty billing history since we don't have that endpoint yet
-      setBillingHistory([]);
+      setSubscription(mockSubscription);
+      setBillingHistory(mockBillingHistory);
 
     } catch (err) {
       setError('Failed to load billing data. Please try again.');

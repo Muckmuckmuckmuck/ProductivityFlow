@@ -181,26 +181,36 @@ export default function TrackingView() {
 
     const interval = setInterval(async () => {
       try {
-        // Simulate activity tracking
+        // Simulate activity tracking with more realistic app detection
+        const apps = [
+          "Visual Studio Code", "Terminal", "Safari", "Chrome", "Firefox", "Slack", "Teams", "Zoom",
+          "YouTube", "Facebook", "Twitter", "Instagram", "TikTok", "Netflix", "Reddit", "Discord"
+        ];
+        
+        // Simulate current app (in real app, this would come from system monitoring)
+        const currentApp = apps[Math.floor(Math.random() * apps.length)];
+        
+        const productiveApps = ["Visual Studio Code", "Terminal", "Safari", "Chrome", "Firefox", "Slack", "Teams", "Zoom"];
+        const unproductiveApps = ["YouTube", "Facebook", "Twitter", "Instagram", "TikTok", "Netflix", "Reddit", "Discord"];
+        
         const newTrackingData = {
           ...trackingData,
           totalTime: trackingData.totalTime + 1,
           currentSession: trackingData.currentSession + 1,
-          lastBreak: trackingData.lastBreak + 1
+          lastBreak: trackingData.lastBreak + 1,
+          currentActivity: currentApp
         };
 
-        // Simulate productivity based on time
-        const isProductive = Math.random() > 0.3;
-        if (isProductive) {
+        // Categorize activity based on app
+        if (productiveApps.includes(currentApp)) {
           newTrackingData.productiveTime += 1;
-        } else {
+        } else if (unproductiveApps.includes(currentApp)) {
           newTrackingData.unproductiveTime += 1;
         }
 
         // Calculate productivity score
-        newTrackingData.productivityScore = Math.round(
-          (newTrackingData.productiveTime / newTrackingData.totalTime) * 100
-        );
+        const totalActiveTime = newTrackingData.productiveTime + newTrackingData.unproductiveTime;
+        newTrackingData.productivityScore = totalActiveTime > 0 ? Math.round((newTrackingData.productiveTime / totalActiveTime) * 100) : 0;
 
         // Update focus sessions
         if (newTrackingData.currentSession % 25 === 0 && newTrackingData.currentSession > 0) {
@@ -333,6 +343,53 @@ export default function TrackingView() {
       ...prev,
       isTracking: !prev.isTracking
     }));
+    
+    // Start or stop the tracking interval
+    if (!trackingData.isTracking) {
+      // Start tracking
+      const trackingInterval = setInterval(() => {
+        setTrackingData(prev => {
+          // Simulate activity detection (in real app, this would come from system monitoring)
+          const currentApp = "Chrome"; // This would be detected from system
+          const productiveApps = ["Visual Studio Code", "Terminal", "Safari", "Chrome"];
+          const unproductiveApps = ["YouTube", "Facebook", "Twitter", "Instagram", "TikTok"];
+          const isProductive = productiveApps.includes(currentApp);
+          const isUnproductive = unproductiveApps.includes(currentApp);
+          
+          const newData = {
+            ...prev,
+            totalTime: prev.totalTime + 1,
+            currentSession: prev.currentSession + 1,
+            lastBreak: prev.lastBreak + 1
+          };
+          
+          // Update productive/unproductive time based on current app
+          if (isProductive) {
+            newData.productiveTime += 1;
+          } else if (isUnproductive) {
+            newData.unproductiveTime += 1;
+          }
+          
+          // Calculate productivity score
+          const totalActiveTime = newData.productiveTime + newData.unproductiveTime;
+          newData.productivityScore = totalActiveTime > 0 ? Math.round((newData.productiveTime / totalActiveTime) * 100) : 0;
+          
+          // Update current activity
+          newData.currentActivity = currentApp;
+          
+          return newData;
+        });
+      }, 60000); // Update every minute
+      
+      // Store interval ID for cleanup
+      (window as any).trackingInterval = trackingInterval;
+    } else {
+      // Stop tracking
+      if ((window as any).trackingInterval) {
+        clearInterval((window as any).trackingInterval);
+        (window as any).trackingInterval = null;
+      }
+    }
   };
 
   const takeBreak = () => {
@@ -471,7 +528,7 @@ export default function TrackingView() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h2 className="text-2xl font-bold">Productivity Tracker</h2>
+                    <h2 className="text-2xl font-bold">Employee Tracker</h2>
                     <p className="text-blue-100">Real-time activity monitoring</p>
                   </div>
                   <div className="flex items-center space-x-4">
@@ -479,7 +536,7 @@ export default function TrackingView() {
                       onClick={toggleTracking}
                       variant={trackingData.isTracking ? "outline" : "primary"}
                       size="lg"
-                      className="bg-white text-blue-600 hover:bg-gray-100"
+                      className={trackingData.isTracking ? "border-white text-white hover:bg-white hover:text-blue-600" : "bg-white text-blue-600 hover:bg-gray-100"}
                     >
                       {trackingData.isTracking ? (
                         <>
@@ -1321,7 +1378,7 @@ export default function TrackingView() {
                       <select
                         value={theme}
                         onChange={(e) => setTheme(e.target.value as any)}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                       >
                         <option value="light">Light</option>
                         <option value="dark">Dark</option>
@@ -1333,7 +1390,7 @@ export default function TrackingView() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">Language</label>
                       <select
                         defaultValue="en"
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                       >
                         <option value="en">English</option>
                         <option value="es">Español</option>
@@ -1346,7 +1403,7 @@ export default function TrackingView() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">Time Zone</label>
                       <select
                         defaultValue="auto"
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                       >
                         <option value="auto">Auto-detect</option>
                         <option value="utc">UTC</option>

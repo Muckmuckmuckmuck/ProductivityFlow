@@ -15,6 +15,9 @@ interface ManagerSession {
   managerName: string;
   organization: string;
   token: string;
+  isOwner: boolean;
+  ownerCode: string | null;
+  managerCode: string | null;
 }
 
 function App() {
@@ -69,13 +72,14 @@ function App() {
             onLogout={handleLogout}
             managerName={session.managerName}
             organization={session.organization}
+            isOwner={session.isOwner}
           />
           
           <main className="flex-1 overflow-auto">
             <Routes>
-              <Route path="/" element={<Dashboard />} />
+              <Route path="/" element={<Dashboard session={session} />} />
               <Route path="/team" element={<TeamManagement />} />
-              <Route path="/billing" element={<Billing />} />
+              <Route path="/billing" element={session.isOwner ? <Billing /> : <div className="p-8 text-center">Access denied. Owner access required.</div>} />
               <Route path="/compliance" element={<Compliance />} />
               <Route path="/analytics" element={<Analytics />} />
             </Routes>

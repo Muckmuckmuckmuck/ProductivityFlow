@@ -17,9 +17,10 @@ interface SidebarProps {
   onLogout?: () => void;
   managerName?: string;
   organization?: string;
+  isOwner?: boolean;
 }
 
-const Sidebar = ({ isOpen = false, onToggle, onLogout, managerName, organization }: SidebarProps) => {
+const Sidebar = ({ isOpen = false, onToggle, onLogout, managerName, organization, isOwner = false }: SidebarProps) => {
   const location = useLocation();
 
   const navigation = [
@@ -27,7 +28,8 @@ const Sidebar = ({ isOpen = false, onToggle, onLogout, managerName, organization
     { name: 'Team Management', href: '/team', icon: Users },
     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
     { name: 'Compliance', href: '/compliance', icon: Shield },
-    { name: 'Billing', href: '/billing', icon: CreditCard },
+    // Only show Billing for owners
+    ...(isOwner ? [{ name: 'Billing', href: '/billing', icon: CreditCard }] : []),
   ];
 
   const isActive = (path: string) => location.pathname === path;

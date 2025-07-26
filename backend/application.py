@@ -177,6 +177,28 @@ class DailySummary(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
 
+class HourlySummary(db.Model):
+    __tablename__ = 'hourly_summaries'
+    id = db.Column(db.String(80), primary_key=True)
+    user_id = db.Column(db.String(80), nullable=False)
+    team_id = db.Column(db.String(80), nullable=False)
+    hour = db.Column(db.Integer, nullable=False)  # 0-23
+    date = db.Column(db.Date, nullable=False)
+    
+    # Hourly totals
+    total_minutes = db.Column(db.Integer, default=0)
+    productive_minutes = db.Column(db.Integer, default=0)
+    unproductive_minutes = db.Column(db.Integer, default=0)
+    productivity_score = db.Column(db.Float, default=0.0)
+    
+    # App data
+    apps_data = db.Column(db.JSON, nullable=True)  # Array of app activities
+    summary_text = db.Column(db.Text, nullable=True)
+    
+    # Metadata
+    timestamp = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now, nullable=False)
+
 # Utility functions
 def generate_id(prefix):
     timestamp = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
@@ -403,6 +425,7 @@ def login_manager():
         
         email = data.get('email', '').strip().lower()
         password = data.get('password', '')
+        team_code = data.get('team_code', '').strip()  # Optional for manager login
         
         if not email or not password:
             return jsonify({'error': True, 'message': 'Email and password are required'}), 400
@@ -415,6 +438,19 @@ def login_manager():
         # Verify password
         if not verify_password(password, user.password_hash):
             return jsonify({'error': True, 'message': 'Invalid credentials'}), 401
+        
+        # If team code is provided, verify it matches the user's team
+        if team_code:
+            if not user.team_id:
+                return jsonify({'error': True, 'message': 'User is not part of any team'}), 400
+            
+            # Find the team and verify the manager code
+            team = Team.query.filter_by(id=user.team_id).first()
+            if not team:
+                return jsonify({'error': True, 'message': 'Team not found'}), 400
+            
+            if team.manager_code != team_code:
+                return jsonify({'error': True, 'message': 'Invalid manager team code'}), 400
         
         # Create token
         token = create_jwt_token(user.id, user.team_id or '', user.role)
@@ -429,7 +465,8 @@ def login_manager():
                 'name': user.name,
                 'email': user.email,
                 'role': user.role,
-                'team_id': user.team_id
+                'team_id': user.team_id,
+                'organization': getattr(user, 'organization', 'Default Organization')
             },
             'token': token
         }), 200
@@ -796,41 +833,36 @@ def join_team():
         
         employee_code = data.get('employee_code', '').strip().upper()
         user_name = data.get('user_name', '').strip()
+        email = data.get('email', '').strip().lower()
+        password = data.get('password', '').strip()
         
-        if not employee_code or not user_name:
-            return jsonify({'error': True, 'message': 'Employee code and user name are required'}), 400
+        if not employee_code or not user_name or not email or not password:
+            return jsonify({'error': True, 'message': 'Employee code, name, email, and password are required'}), 400
+        
+        if len(password) < 8:
+            return jsonify({'error': True, 'message': 'Password must be at least 8 characters long'}), 400
         
         # Find team
         team = Team.query.filter_by(employee_code=employee_code).first()
         if not team:
             return jsonify({'error': True, 'message': 'Invalid employee code'}), 404
         
-        # Check if user exists
-        existing_user = User.query.filter_by(team_id=team.id, name=user_name).first()
+        # Check if email already exists
+        existing_email = User.query.filter_by(email=email).first()
+        if existing_email:
+            return jsonify({'error': True, 'message': 'An account with this email already exists'}), 400
         
+        # Check if user exists in this team
+        existing_user = User.query.filter_by(team_id=team.id, name=user_name).first()
         if existing_user:
-            return jsonify({
-                'success': True,
-                'message': 'User already exists in team',
-                'user': {
-                    'id': existing_user.id,
-                    'name': existing_user.name,
-                    'role': 'employee',
-                    'team_id': team.id
-                },
-                'team': {
-                    'id': team.id,
-                    'name': team.name,
-                    'employee_code': team.employee_code
-                }
-            }), 200
+            return jsonify({'error': True, 'message': 'A user with this name already exists in the team'}), 400
         
         # Create new user
         user_id = generate_id('user')
         new_user = User(
             id=user_id,
-            email=f"{user_name.lower().replace(' ', '.')}@{team.id}.local",
-            password_hash=hash_password('default'),
+            email=email,
+            password_hash=hash_password(password),
             name=user_name,
             team_id=team.id,
             role='employee'
@@ -839,7 +871,7 @@ def join_team():
         db.session.add(new_user)
         db.session.commit()
         
-        logger.info(f"User joined team: {user_name} joined {team.name}")
+        logger.info(f"Employee joined team: {user_name} ({email}) joined {team.name}")
         
         return jsonify({
             'success': True,
@@ -847,6 +879,7 @@ def join_team():
             'user': {
                 'id': user_id,
                 'name': user_name,
+                'email': email,
                 'role': 'employee',
                 'team_id': team.id
             },
@@ -861,6 +894,66 @@ def join_team():
         logger.error(f"Team join failed: {str(e)}")
         db.session.rollback()
         return jsonify({'error': True, 'message': 'Failed to join team'}), 500
+
+@application.route('/api/teams/join-manager', methods=['POST'])
+def join_team_as_manager():
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': True, 'message': 'No data provided'}), 400
+        
+        manager_code = data.get('manager_code', '').strip()
+        email = data.get('email', '').strip().lower()
+        password = data.get('password', '').strip()
+        name = data.get('name', '').strip()
+        
+        if not manager_code or not email or not password or not name:
+            return jsonify({'error': True, 'message': 'Manager code, email, password, and name are required'}), 400
+        
+        # Find team by manager code
+        team = Team.query.filter_by(manager_code=manager_code).first()
+        if not team:
+            return jsonify({'error': True, 'message': 'Invalid manager code'}), 400
+        
+        # Check if user already exists
+        existing_user = User.query.filter_by(email=email).first()
+        if existing_user:
+            return jsonify({'error': True, 'message': 'User with this email already exists'}), 400
+        
+        # Create a new manager user
+        user_id = generate_id('user')
+        user = User(
+            id=user_id,
+            email=email,
+            password_hash=hash_password(password),
+            name=name,
+            team_id=team.id,
+            role='manager'
+        )
+        
+        db.session.add(user)
+        db.session.commit()
+        
+        logger.info(f"Manager joined team: {name} -> {team.name}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Successfully joined team as manager',
+            'user': {
+                'id': user.id,
+                'name': user.name,
+                'email': user.email,
+                'team_id': team.id,
+                'team_name': team.name,
+                'role': 'manager'
+            }
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Join team as manager failed: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': True, 'message': 'Failed to join team as manager'}), 500
 
 # Activity tracking
 @application.route('/api/activity/track', methods=['POST'])
@@ -1330,6 +1423,65 @@ def generate_daily_summary():
         logger.error(f"Failed to generate daily summary: {str(e)}")
         db.session.rollback()
         return jsonify({'error': True, 'message': 'Failed to generate daily summary'}), 500
+
+@application.route('/api/activity/hourly-summary', methods=['POST'])
+def hourly_summary():
+    """Save hourly productivity summary with AI categorization"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': True, 'message': 'No data provided'}), 400
+        
+        hour = data.get('hour')
+        total_minutes = data.get('totalMinutes', 0)
+        productive_minutes = data.get('productiveMinutes', 0)
+        unproductive_minutes = data.get('unproductiveMinutes', 0)
+        productivity_score = data.get('productivityScore', 0)
+        apps = data.get('apps', [])
+        summary = data.get('summary', '')
+        timestamp = data.get('timestamp')
+        
+        if hour is None or not timestamp:
+            return jsonify({'error': True, 'message': 'Hour and timestamp are required'}), 400
+        
+        # Create hourly summary record
+        summary_id = generate_id('hourly_summary')
+        new_hourly_summary = HourlySummary(
+            id=summary_id,
+            hour=hour,
+            total_minutes=total_minutes,
+            productive_minutes=productive_minutes,
+            unproductive_minutes=unproductive_minutes,
+            productivity_score=productivity_score,
+            apps_data=apps,
+            summary_text=summary,
+            timestamp=timestamp
+        )
+        
+        db.session.add(new_hourly_summary)
+        db.session.commit()
+        
+        logger.info(f"Hourly summary saved for hour {hour}: {productive_minutes}m productive, {unproductive_minutes}m unproductive")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Hourly summary saved successfully',
+            'summary': {
+                'id': summary_id,
+                'hour': hour,
+                'totalMinutes': total_minutes,
+                'productiveMinutes': productive_minutes,
+                'unproductiveMinutes': unproductive_minutes,
+                'productivityScore': productivity_score,
+                'summary': summary
+            }
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Hourly summary save failed: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': True, 'message': 'Failed to save hourly summary'}), 500
 
 # Analytics endpoints
 @application.route('/api/analytics/burnout-risk', methods=['GET'])

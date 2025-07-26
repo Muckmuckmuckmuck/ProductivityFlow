@@ -131,7 +131,19 @@ interface ComprehensiveAnalytics {
 type DateRange = 'today' | 'week' | 'month' | 'quarter' | 'custom';
 type ViewMode = 'grid' | 'list' | 'detailed';
 
-export default function Dashboard() {
+interface DashboardProps {
+  session: {
+    managerId: string;
+    managerName: string;
+    organization: string;
+    token: string;
+    isOwner: boolean;
+    ownerCode: string | null;
+    managerCode: string | null;
+  };
+}
+
+export default function Dashboard({ session }: DashboardProps) {
   // Core state
   const [selectedTeam, setSelectedTeam] = useState<TeamData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -714,6 +726,61 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
+        )}
+
+        {/* Team Codes Section - Only for Owners */}
+        {session.isOwner && selectedTeam && (
+          <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 border-indigo-200">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Users className="h-5 w-5 text-indigo-600" />
+                <span>Team Access Codes</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                  <h3 className="text-sm font-semibold text-blue-800 mb-2">Employee Code</h3>
+                  <div className="flex items-center justify-between">
+                    <code className="text-lg font-mono font-bold text-blue-900 bg-blue-100 px-3 py-2 rounded-lg">
+                      {selectedTeam.id.slice(0, 8).toUpperCase()}
+                    </code>
+                    <Button
+                      onClick={() => navigator.clipboard.writeText(selectedTeam.id.slice(0, 8).toUpperCase())}
+                      className="text-blue-600 hover:text-blue-700"
+                      variant="ghost"
+                      size="sm"
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                  <p className="text-xs text-blue-700 mt-2">
+                    Share this code with employees to join your team
+                  </p>
+                </div>
+
+                <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl">
+                  <h3 className="text-sm font-semibold text-purple-800 mb-2">Manager Code</h3>
+                  <div className="flex items-center justify-between">
+                    <code className="text-lg font-mono font-bold text-purple-900 bg-purple-100 px-3 py-2 rounded-lg">
+                      {session.ownerCode || 'OWNER123'}
+                    </code>
+                    <Button
+                      onClick={() => navigator.clipboard.writeText(session.ownerCode || 'OWNER123')}
+                      className="text-purple-600 hover:text-purple-700"
+                      variant="ghost"
+                      size="sm"
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                  <p className="text-xs text-purple-700 mt-2">
+                    Keep this code secure for administrative access
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Enhanced Analytics Section */}
