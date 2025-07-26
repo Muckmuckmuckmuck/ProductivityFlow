@@ -1105,8 +1105,8 @@ class Team(db.Model):
     manager_code = db.Column(db.String(10), unique=True, nullable=False, index=True)
     description = db.Column(db.Text, nullable=True)
     settings = db.Column(db.JSON, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(datetime.UTC), nullable=False)
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(datetime.UTC), onupdate=lambda: datetime.now(datetime.UTC))
     
     # Relationships
     users = db.relationship('User', backref='team', lazy='dynamic')
@@ -1127,8 +1127,8 @@ class User(db.Model):
     settings = db.Column(db.JSON, nullable=True)
     last_login = db.Column(db.DateTime, nullable=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(datetime.UTC), nullable=False)
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(datetime.UTC), onupdate=lambda: datetime.now(datetime.UTC))
     reset_token = db.Column(db.String(255), nullable=True)
     reset_token_expires = db.Column(db.DateTime, nullable=True)
     email_verified = db.Column(db.Boolean, default=False, nullable=False)
@@ -1152,10 +1152,10 @@ class Activity(db.Model):
     focus_sessions = db.Column(db.Integer, default=0, nullable=False)
     breaks_taken = db.Column(db.Integer, default=0, nullable=False)
     productivity_score = db.Column(db.Float, default=0.0, nullable=False)
-    last_active = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    last_active = db.Column(db.DateTime, default=lambda: datetime.now(datetime.UTC), nullable=False)
     activity_metadata = db.Column(db.JSON, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(datetime.UTC), nullable=False)
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(datetime.UTC), onupdate=lambda: datetime.now(datetime.UTC))
 
 # Professional utility functions
 def generate_secure_id(prefix: str) -> str:
@@ -1335,12 +1335,13 @@ def validate_password(password: str) -> Dict[str, Any]:
 def health_check():
     """Professional health check endpoint"""
     try:
-        # Test database connection
-        db.session.execute('SELECT 1')
+        # Test database connection with proper SQLAlchemy text()
+        from sqlalchemy import text
+        db.session.execute(text('SELECT 1'))
         
         return jsonify({
             'status': 'healthy',
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(datetime.UTC).isoformat(),
             'version': '3.2.0',
             'environment': os.environ.get('FLASK_ENV', 'development'),
             'database': 'connected',
@@ -1354,7 +1355,7 @@ def health_check():
         logger.error(f"Health check failed: {e}")
         return jsonify({
             'status': 'unhealthy',
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(datetime.UTC).isoformat(),
             'error': str(e)
         }), 503
 
