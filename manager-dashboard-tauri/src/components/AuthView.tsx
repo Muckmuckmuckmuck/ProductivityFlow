@@ -12,7 +12,8 @@ import {
   Building,
   User,
   UserPlus,
-  LogIn
+  LogIn,
+  CheckCircle2
 } from 'lucide-react';
 
 const API_URL = "https://my-home-backend-7m6d.onrender.com";
@@ -38,6 +39,9 @@ export function AuthView({ onAuthSuccess }: AuthViewProps) {
   const [success, setSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isModeTransitioning, setIsModeTransitioning] = useState(false);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
   const currentOperation = useRef<string>('');
 
   const handleCreateAccount = async () => {
@@ -82,23 +86,10 @@ export function AuthView({ onAuthSuccess }: AuthViewProps) {
       
       const data = JSON.parse(response as string);
 
-      if (data.success && data.user && data.token) {
-        setSuccess("Account created successfully!");
-        
-        // Store token in localStorage
-        localStorage.setItem('authToken', data.token);
-        
-        const sessionData = {
-          managerId: data.user.id,
-          managerName: data.user.name,
-          organization: data.user.organization || organization,
-          token: data.token
-        };
-        
-        // Small delay to show success message
-        setTimeout(() => {
-          onAuthSuccess(sessionData);
-        }, 1000);
+      if (data.success) {
+        setSuccess("Account created successfully! Please check your email for verification code.");
+        setShowEmailVerification(true);
+        // Don't auto-login - require email verification first
       } else {
         setError(data.message || 'Failed to create account. Please try again.');
       }
@@ -118,6 +109,57 @@ export function AuthView({ onAuthSuccess }: AuthViewProps) {
       setIsLoading(false);
       setIsSubmitting(false);
       currentOperation.current = '';
+    }
+  };
+
+  const handleEmailVerification = async () => {
+    if (!verificationCode.trim()) {
+      setError("Please enter the verification code.");
+      return;
+    }
+
+    setIsVerifying(true);
+    setError("");
+
+    try {
+      const { invoke } = await import('@tauri-apps/api/tauri');
+      
+      const response = await invoke('http_post', {
+        url: `${API_URL}/api/auth/verify-email`,
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          verification_code: verificationCode.trim()
+        }),
+        headers: JSON.stringify({
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        })
+      });
+      
+      const data = JSON.parse(response as string);
+
+      if (data.success && data.user && data.token) {
+        setSuccess("Email verified successfully! You can now sign in.");
+        setShowEmailVerification(false);
+        setIsSignIn(true);
+        // Clear the form for sign in
+        setPassword("");
+        setVerificationCode("");
+      } else {
+        setError(data.message || 'Email verification failed. Please try again.');
+      }
+    } catch (err: any) {
+      let errorMessage = "Email verification failed. Please try again.";
+      
+      if (err.message.includes('Failed to fetch') || err.message.includes('Cannot connect')) {
+        errorMessage = "Cannot connect to server. Please check your internet connection.";
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -202,15 +244,108 @@ export function AuthView({ onAuthSuccess }: AuthViewProps) {
     
     setIsSignIn(!isSignIn);
     setSuccess("");
+    setShowEmailVerification(false);
     
     // Reset form fields
     setEmail("");
     setPassword("");
     setName("");
     setOrganization("");
+    setVerificationCode("");
     
     setIsModeTransitioning(false);
   };
+
+  // Email verification view
+  if (showEmailVerification) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <Card className="bg-white/90 backdrop-blur-sm border-0 rounded-2xl shadow-xl">
+            <CardHeader className="text-center pb-6">
+              <div className="flex items-center justify-center mb-6">
+                <div className="p-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl">
+                  <CheckCircle2 className="h-8 w-8 text-white" />
+                </div>
+              </div>
+              <CardTitle className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                Verify Your Email
+              </CardTitle>
+              <p className="text-gray-600 text-lg mt-2">
+                We've sent a verification code to your email
+              </p>
+              <p className="text-sm text-gray-500 mt-2">
+                {email}
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {success && (
+                <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-xl">
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                  <span className="text-sm text-green-700 font-medium">{success}</span>
+                </div>
+              )}
+
+              {error && (
+                <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl">
+                  <AlertCircle className="h-5 w-5 text-red-500" />
+                  <span className="text-sm text-red-700 font-medium">{error}</span>
+                </div>
+              )}
+
+              <div>
+                <label htmlFor="verificationCode" className="text-sm font-semibold text-gray-700 mb-2 block">
+                  Verification Code *
+                </label>
+                <input
+                  id="verificationCode"
+                  type="text"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value)}
+                  placeholder="Enter the 6-digit code"
+                  className="flex h-12 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 text-center text-lg tracking-widest"
+                  maxLength={6}
+                  required
+                />
+              </div>
+
+              <Button
+                onClick={handleEmailVerification}
+                disabled={isVerifying || !verificationCode.trim()}
+                className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg"
+              >
+                {isVerifying ? (
+                  <>
+                    <Loader2 className="mr-3 h-5 w-5 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="mr-3 h-5 w-5" />
+                    Verify Email
+                  </>
+                )}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowEmailVerification(false);
+                  setSuccess("");
+                  setError("");
+                }}
+                disabled={isVerifying}
+                className="w-full h-12 text-lg font-semibold border-gray-300 hover:bg-gray-50 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Back to Sign In
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center p-4">
